@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — MealLedger</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div class="brand"><span class="tag">$</span> MealLedger <span class="badge yellow" style="margin-left:8px;">Admin</span></div>
+    <div class="topbar-right">
+      <span class="user-chip" id="userChip">…</span>
+      <button class="btn-ghost" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <span class="eyebrow">Admin console</span>
+    <h1>System overview</h1>
+    <p>Manage students, admins, and the food catalog that powers the AI recommendation engine.</p>
+
+    <div class="nav-tabs">
+      <a href="#overview" class="active" data-tab="overview">Overview</a>
+      <a href="#users" data-tab="users">Users</a>
+      <a href="#catalog" data-tab="catalog">Food Catalog</a>
+    </div>
+
+    <div id="errorBanner" class="error-banner"></div>
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview">
+      <div class="grid grid-3" id="statCards">
+        <div class="price-tag"><div class="label">Students</div><div class="amount">—</div></div>
+        <div class="price-tag"><div class="label">Total spend tracked</div><div class="amount">—</div></div>
+        <div class="price-tag"><div class="label">Food catalog size</div><div class="amount">—</div></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="tab-users" style="display:none;">
+      <div class="card">
+        <div class="section-head">
+          <h2>All users</h2>
+          <select id="roleFilter" style="width:auto;">
+            <option value="">All roles</option>
+            <option value="STUDENT">Students</option>
+            <option value="ADMIN">Admins</option>
+          </select>
+        </div>
+        <div id="userList"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- CATALOG -->
+    <section id="tab-catalog" style="display:none;">
+      <div class="card">
+        <span class="eyebrow">Feeds the AI Engine</span>
+        <h2>Add a food item</h2>
+        <form id="foodForm">
+          <div class="form-row">
+            <div>
+              <label for="fName">Name</label>
+              <input id="fName" type="text" required>
+            </div>
+            <div>
+              <label for="fCategory">Meal slot</label>
+              <select id="fCategory">
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="snack">Snack</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="fPrice">Price ($)</label>
+              <input id="fPrice" type="number" min="0" step="0.01" required>
+            </div>
+            <div>
+              <label for="fCalories">Calories</label>
+              <input id="fCalories" type="number" min="0" required>
+            </div>
+          </div>
+          <label for="fTags">Dietary tags (comma-separated)</label>
+          <input id="fTags" type="text" placeholder="vegetarian, vegan, halal">
+          <button class="btn block" style="margin-top:14px;" type="submit">Add to catalog</button>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h2>Catalog</h2>
+        <div id="catalogList"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  if (!requireAuth('ADMIN')) { throw new Error('redirecting'); }
+  const user = Auth.getUser();
+  document.getElementById('userChip').textContent = `${user.name} · Admin`;
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Auth.clear();
+    window.location.href = 'index.html';
+  });
+
+  const tabs = document.querySelectorAll('.nav-tabs a');
+  tabs.forEach((t) => t.addEventListener('click', (e) => {
+    e.preventDefault();
+    tabs.forEach((x) => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
+    document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
+    if (t.dataset.tab === 'users') loadUsers();
+    if (t.dataset.tab === 'catalog') loadCatalog();
+  }));
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  async function loadOverview() {
+    try {
+      const data = await Api.adminDashboard();
+      const studentCount = (data.userCounts.find((u) => u.role === 'STUDENT') || {}).count || 0;
+      const cards = document.querySelectorAll('#statCards .price-tag .amount');
+      cards[0].textContent = studentCount;
+      cards[1].textContent = money(data.totalStudentSpend);
+      cards[2].textContent = data.foodCatalogSize;
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  async function loadUsers() {
+    const el = document.getElementById('userList');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const role = document.getElementById('roleFilter').value;
+      const { users } = await Api.adminUsers(role);
+      if (!users.length) { el.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      el.innerHTML = users.map((u) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span></div>
+            <div class="meta">${escapeHtml(u.email)}${u.role === 'STUDENT' ? ` · budget ${money(u.budgetLimit)} · ${escapeHtml(u.dietaryPreference || 'none')}` : ''}</div>
+          </div>
+          <button class="btn danger" data-id="${u.userId}" style="padding:6px 12px; font-size:12px;">Remove</button>
+        </div>`).join('');
+      el.querySelectorAll('button[data-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Remove this user? This cannot be undone.')) return;
+          try {
+            await Api.adminDeleteUser(btn.dataset.id);
+            showToast('User removed.');
+            loadUsers();
+            loadOverview();
+          } catch (err) {
+            showError('errorBanner', err.message);
+          }
+        });
+      });
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+  document.getElementById('roleFilter').addEventListener('change', loadUsers);
+
+  async function loadCatalog() {
+    const el = document.getElementById('catalogList');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const { foodItems } = await Api.adminListFoodItems();
+      if (!foodItems.length) { el.innerHTML = '<div class="empty">No food items yet.</div>'; return; }
+      el.innerHTML = foodItems.map((f) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(f.name)} <span class="badge" style="margin-left:6px;">${f.category}</span></div>
+            <div class="meta">${f.calories} kcal · ${(f.dietaryTags || []).join(', ') || 'no tags'}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="price">${money(f.price)}</span>
+            <button class="btn danger" data-id="${f.itemId}" style="padding:6px 12px; font-size:12px;">Delete</button>
+          </div>
+        </div>`).join('');
+      el.querySelectorAll('button[data-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this food item from the catalog?')) return;
+          try {
+            await Api.adminDeleteFoodItem(btn.dataset.id);
+            showToast('Food item removed.');
+            loadCatalog();
+            loadOverview();
+          } catch (err) {
+            showError('errorBanner', err.message);
+          }
+        });
+      });
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  document.getElementById('foodForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('errorBanner', null);
+    try {
+      const tags = document.getElementById('fTags').value
+        .split(',').map((t) => t.trim()).filter(Boolean);
+      await Api.adminCreateFoodItem({
+        name: document.getElementById('fName').value.trim(),
+        price: Number(document.getElementById('fPrice').value),
+        calories: Number(document.getElementById('fCalories').value),
+        category: document.getElementById('fCategory').value,
+        dietaryTags: tags,
+      });
+      document.getElementById('foodForm').reset();
+      showToast('Food item added.');
+      loadCatalog();
+      loadOverview();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  loadOverview();
+</script>
+</body>
+</html>

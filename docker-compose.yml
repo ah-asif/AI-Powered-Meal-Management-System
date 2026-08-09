@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------
+  # PostgreSQL database
+  # ---------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: smap_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-student_meal_app}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-student_meal_app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------
+  # One-shot schema + seed loader. Runs once, then exits.
+  # ---------------------------------------------------------
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: smap_db_init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-student_meal_app}
+    command: ["java", "-cp", "out:lib/*", "com.mealapp.tools.InitDb"]
+    restart: "no"
+
+  # ---------------------------------------------------------
+  # Backend REST API (pure Java, no frameworks — see backend/)
+  # ---------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: smap_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      PORT: 4000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-student_meal_app}
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-string}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+
+  # ---------------------------------------------------------
+  # Frontend (nginx static server + /api reverse proxy)
+  # ---------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smap_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+
+volumes:
+  pgdata:

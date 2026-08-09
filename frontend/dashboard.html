@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — MealLedger</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <div class="topbar">
+    <div class="brand"><span class="tag">$</span> MealLedger</div>
+    <div class="topbar-right">
+      <span class="user-chip" id="userChip">…</span>
+      <button class="btn-ghost" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <span class="eyebrow">Student dashboard</span>
+    <h1 id="greeting">Welcome back</h1>
+    <p>Your budget, your meals, planned by the AI Engine for the lowest cost per calorie.</p>
+
+    <div class="nav-tabs">
+      <a href="#overview" class="active" data-tab="overview">Overview</a>
+      <a href="#meals" data-tab="meals">AI Meal Plan</a>
+      <a href="#expenses" data-tab="expenses">Expenses</a>
+      <a href="#insights" data-tab="insights">Insights</a>
+    </div>
+
+    <div id="errorBanner" class="error-banner"></div>
+
+    <!-- OVERVIEW TAB -->
+    <section id="tab-overview">
+      <div class="grid grid-2">
+        <div class="ticket">
+          <span class="eyebrow" style="color:#7a5b06;">Budget status</span>
+          <div class="ticket-row"><span class="k">Total budget</span><span class="v" id="ovTotal">—</span></div>
+          <div class="ticket-row"><span class="k">Spent so far</span><span class="v" id="ovSpent">—</span></div>
+          <div class="gauge"><div class="gauge-fill" id="ovGauge" style="width:0%"></div></div>
+          <div class="ticket-total"><span class="k">Remaining</span><span class="v" id="ovRemaining">—</span></div>
+        </div>
+
+        <div class="card">
+          <span class="eyebrow">Quick set budget</span>
+          <h2 style="margin-bottom:12px;">Start a new period</h2>
+          <form id="budgetForm">
+            <label for="budgetAmount">Total budget for this period ($)</label>
+            <input id="budgetAmount" type="number" min="0" step="0.5" placeholder="50.00" required>
+            <button class="btn block" style="margin-top:14px;" type="submit">Save budget</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <div class="section-head">
+          <h2>Recent notifications</h2>
+        </div>
+        <div id="notifList"><div class="empty">No notifications yet.</div></div>
+      </div>
+    </section>
+
+    <!-- MEAL PLAN TAB -->
+    <section id="tab-meals" style="display:none;">
+      <div class="card">
+        <span class="eyebrow">AI food agent</span>
+        <h2>Build today's plan, one food at a time</h2>
+        <p>The AI Engine suggests one healthy, low-cost food that fits what's left of your budget. Accept it to add it to your plan, or skip it for another suggestion — either way, it picks the next one the same way, until you're ready to save.</p>
+        <div class="form-row" style="align-items:center;">
+          <button class="btn" id="startSuggestBtn" type="button">Start suggesting foods</button>
+          <button class="btn-ghost" id="resetSuggestBtn" type="button" style="display:none;">Start over</button>
+        </div>
+      </div>
+
+      <div class="card" id="suggestionCard" style="display:none; margin-top:18px;">
+        <span class="eyebrow">Suggested next</span>
+        <div id="suggestionBody"></div>
+        <div class="form-row" style="margin-top:14px;">
+          <button class="btn" id="acceptSuggestionBtn" type="button">Accept &amp; add to plan</button>
+          <button class="btn-ghost" id="skipSuggestionBtn" type="button">Skip, suggest another</button>
+        </div>
+      </div>
+
+      <div class="card" id="noSuggestionCard" style="display:none; margin-top:18px;">
+        <div class="empty" id="noSuggestionMessage">No more items fit your remaining budget.</div>
+      </div>
+
+      <div class="card" id="planBuilderCard" style="display:none; margin-top:18px;">
+        <div class="section-head">
+          <h2>Your plan so far</h2>
+          <span class="badge green" id="planBadge"></span>
+        </div>
+        <div id="planItems"></div>
+        <div class="ticket-total" style="margin-top:14px;">
+          <span class="k">Total cost</span><span class="v" id="planCost">—</span>
+        </div>
+        <button class="btn block" id="savePlanBtn" type="button" style="margin-top:14px;">Save this plan</button>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h2>Plan history</h2>
+        <div id="planHistory"><div class="empty">No meal plans saved yet.</div></div>
+      </div>
+    </section>
+
+    <!-- EXPENSES TAB -->
+    <section id="tab-expenses" style="display:none;">
+      <div class="grid grid-2">
+        <div class="card">
+          <span class="eyebrow">Log a purchase</span>
+          <h2>Add expense</h2>
+          <form id="expenseForm">
+            <label for="expAmount">Amount ($)</label>
+            <input id="expAmount" type="number" min="0" step="0.01" required>
+            <label for="expCategory">Category</label>
+            <select id="expCategory">
+              <option value="food">Food</option>
+              <option value="groceries">Groceries</option>
+              <option value="other">Other</option>
+            </select>
+            <label for="expDesc">Description (optional)</label>
+            <input id="expDesc" type="text" placeholder="e.g. campus canteen lunch">
+            <button class="btn block" style="margin-top:14px;" type="submit">Add expense</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Recent expenses</h2>
+          <div id="expenseList"><div class="empty">No expenses logged yet.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSIGHTS TAB -->
+    <section id="tab-insights" style="display:none;">
+      <div class="card">
+        <span class="eyebrow">AI Engine · analyzePreferences()</span>
+        <h2>Spending & value insights</h2>
+        <div id="insightsBody"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  if (!requireAuth('STUDENT')) { throw new Error('redirecting'); }
+  const user = Auth.getUser();
+  document.getElementById('userChip').textContent = `${user.name} · Student`;
+  document.getElementById('greeting').textContent = `Welcome back, ${user.name.split(' ')[0]}`;
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Auth.clear();
+    window.location.href = 'index.html';
+  });
+
+  // ---- tab switching ----
+  const tabs = document.querySelectorAll('.nav-tabs a');
+  tabs.forEach((t) => t.addEventListener('click', (e) => {
+    e.preventDefault();
+    tabs.forEach((x) => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
+    document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
+    if (t.dataset.tab === 'insights') loadInsights();
+    if (t.dataset.tab === 'meals') loadPlanHistory();
+  }));
+
+  function gaugeClass(pct) {
+    if (pct <= 15) return 'danger';
+    if (pct <= 35) return 'warn';
+    return '';
+  }
+
+  // ---- overview ----
+  async function loadOverview() {
+    try {
+      const data = await Api.studentDashboard();
+      const total = data.currentBudget ? Number(data.currentBudget.totalBudget) : data.budgetLimit;
+      const spent = data.currentBudget ? Number(data.currentBudget.spentAmount) : 0;
+      const remaining = data.remaining;
+      const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+
+      document.getElementById('ovTotal').textContent = money(total);
+      document.getElementById('ovSpent').textContent = money(spent);
+      document.getElementById('ovRemaining').textContent = money(remaining);
+      const fill = document.getElementById('ovGauge');
+      fill.style.width = `${pct}%`;
+      fill.className = `gauge-fill ${gaugeClass(pct)}`;
+
+      const notifs = await Api.notifications();
+      const list = document.getElementById('notifList');
+      if (!notifs.notifications.length) {
+        list.innerHTML = '<div class="empty">No notifications yet.</div>';
+      } else {
+        list.innerHTML = notifs.notifications.slice(0, 6).map((n) => `
+          <div class="meal-item">
+            <span class="name">${escapeHtml(n.message)}</span>
+            <span class="meta">${new Date(n.createdAt).toLocaleString()}</span>
+          </div>`).join('');
+      }
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  document.getElementById('budgetForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('errorBanner', null);
+    try {
+      await Api.setBudget({ totalBudget: Number(document.getElementById('budgetAmount').value) });
+      showToast('Budget saved.');
+      document.getElementById('budgetAmount').value = '';
+      loadOverview();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  // ---- meal plan (AI agent): suggest one food at a time ----
+  let planSelected = [];   // FoodItem objects the student accepted
+  let planExcluded = [];   // itemIds skipped so they aren't suggested again
+
+  function resetPlanBuilder() {
+    planSelected = [];
+    planExcluded = [];
+    document.getElementById('suggestionCard').style.display = 'none';
+    document.getElementById('noSuggestionCard').style.display = 'none';
+    document.getElementById('planBuilderCard').style.display = 'none';
+    document.getElementById('resetSuggestBtn').style.display = 'none';
+    document.getElementById('startSuggestBtn').style.display = 'inline-flex';
+  }
+
+  async function requestSuggestion() {
+    showError('errorBanner', null);
+    const selectedIds = planSelected.map((it) => it.itemId);
+    const data = await Api.suggestNextFood({ selectedItemIds: selectedIds, excludedItemIds: planExcluded });
+    document.getElementById('resetSuggestBtn').style.display = 'inline-flex';
+    document.getElementById('startSuggestBtn').style.display = 'none';
+
+    if (!data.suggestion) {
+      document.getElementById('suggestionCard').style.display = 'none';
+      document.getElementById('noSuggestionCard').style.display = 'block';
+      document.getElementById('noSuggestionMessage').textContent =
+        data.message || 'No more items fit your remaining budget.';
+      return;
+    }
+
+    document.getElementById('noSuggestionCard').style.display = 'none';
+    document.getElementById('suggestionCard').style.display = 'block';
+    const it = data.suggestion;
+    document.getElementById('suggestionBody').innerHTML = `
+      <div class="meal-item">
+        <div>
+          <div class="name">${escapeHtml(it.name)}</div>
+          <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
+        </div>
+        <span class="price">${money(it.price)}</span>
+      </div>
+      <div class="meta" style="margin-top:8px;">Remaining budget after accepting: ${money(data.remainingBudget - it.price)}</div>`;
+    document.getElementById('suggestionBody').dataset.currentItem = JSON.stringify(it);
+  }
+
+  document.getElementById('startSuggestBtn').addEventListener('click', async () => {
+    try {
+      await requestSuggestion();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  document.getElementById('resetSuggestBtn').addEventListener('click', () => {
+    resetPlanBuilder();
+    renderPlanBuilder();
+  });
+
+  document.getElementById('acceptSuggestionBtn').addEventListener('click', async () => {
+    try {
+      const it = JSON.parse(document.getElementById('suggestionBody').dataset.currentItem);
+      planSelected.push(it);
+      renderPlanBuilder();
+      await requestSuggestion();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  document.getElementById('skipSuggestionBtn').addEventListener('click', async () => {
+    try {
+      const it = JSON.parse(document.getElementById('suggestionBody').dataset.currentItem);
+      planExcluded.push(it.itemId);
+      await requestSuggestion();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  function renderPlanBuilder() {
+    const card = document.getElementById('planBuilderCard');
+    if (planSelected.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const totalCalories = planSelected.reduce((s, it) => s + it.calories, 0);
+    const totalCost = planSelected.reduce((s, it) => s + it.price, 0);
+    document.getElementById('planBadge').textContent = `${totalCalories} kcal`;
+    document.getElementById('planCost').textContent = money(totalCost);
+    document.getElementById('planItems').innerHTML = planSelected.map((it) => `
+      <div class="meal-item">
+        <div>
+          <div class="name">${escapeHtml(it.name)}</div>
+          <div class="meta">${it.category} · ${it.calories} kcal</div>
+        </div>
+        <span class="price">${money(it.price)}</span>
+      </div>`).join('');
+  }
+
+  document.getElementById('savePlanBtn').addEventListener('click', async () => {
+    showError('errorBanner', null);
+    const btn = document.getElementById('savePlanBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
+    try {
+      const itemIds = planSelected.map((it) => it.itemId);
+      await Api.savePlan(itemIds);
+      showToast('Meal plan saved.');
+      resetPlanBuilder();
+      loadOverview();
+      loadPlanHistory();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save this plan';
+    }
+  });
+
+  async function loadPlanHistory() {
+    try {
+      const { mealPlans } = await Api.listMealPlans();
+      const el = document.getElementById('planHistory');
+      if (!mealPlans.length) { el.innerHTML = '<div class="empty">No meal plans saved yet.</div>'; return; }
+      el.innerHTML = mealPlans.map((p) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${new Date(p.planDate).toLocaleDateString()}</div>
+            <div class="meta">${Number(p.totalCalories)} kcal</div>
+          </div>
+          <span class="price">${money(p.totalCost)}</span>
+        </div>`).join('');
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  // ---- expenses ----
+  document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('errorBanner', null);
+    try {
+      await Api.addExpense({
+        amount: Number(document.getElementById('expAmount').value),
+        category: document.getElementById('expCategory').value,
+        description: document.getElementById('expDesc').value || undefined,
+      });
+      document.getElementById('expenseForm').reset();
+      showToast('Expense logged.');
+      loadExpenses();
+      loadOverview();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  });
+
+  async function loadExpenses() {
+    try {
+      const { expenses } = await Api.listExpenses();
+      const el = document.getElementById('expenseList');
+      if (!expenses.length) { el.innerHTML = '<div class="empty">No expenses logged yet.</div>'; return; }
+      el.innerHTML = expenses.slice(0, 10).map((ex) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(ex.description || ex.category)}</div>
+            <div class="meta">${ex.category} · ${new Date(ex.expenseDate).toLocaleDateString()}</div>
+          </div>
+          <span class="price">${money(ex.amount)}</span>
+        </div>`).join('');
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  // ---- insights ----
+  async function loadInsights() {
+    const el = document.getElementById('insightsBody');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const data = await Api.insights();
+      if (data.insight) { el.innerHTML = `<div class="empty">${escapeHtml(data.insight)}</div>`; return; }
+      el.innerHTML = `
+        <div class="grid grid-3">
+          <div class="price-tag"><div class="label">Catalog size</div><div class="amount">${data.catalogSize}</div></div>
+          <div class="price-tag"><div class="label">Average price</div><div class="amount">${money(data.averagePrice)}</div></div>
+          <div class="price-tag"><div class="label">Cheapest item</div><div class="amount">${money(data.cheapestOption.price)}</div><div class="meta" style="margin-top:4px;">${escapeHtml(data.cheapestOption.name)}</div></div>
+        </div>
+        <div class="ticket" style="margin-top:18px;">
+          <span class="eyebrow" style="color:#7a5b06;">Best value pick</span>
+          <div class="ticket-row"><span class="k">Item</span><span class="v">${escapeHtml(data.bestValueOption.name)}</span></div>
+          <div class="ticket-row"><span class="k">Price</span><span class="v">${money(data.bestValueOption.price)}</span></div>
+          <div class="ticket-row"><span class="k">Calories per $1</span><span class="v">${data.bestValueOption.caloriesPerCurrencyUnit}</span></div>
+        </div>`;
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  loadOverview();
+  loadExpenses();
+</script>
+</body>
+</html>
