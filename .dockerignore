@@ -1,0 +1,7 @@
+**/.env
+**/.git
+**/*.log
+backend/out
+backend/sources.txt
+docs
+.github

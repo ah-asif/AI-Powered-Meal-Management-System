@@ -14,13 +14,24 @@ import java.util.stream.Collectors;
 /**
  * AIEngine
  * --------
- * +suggestNext(...)   — the core "AI agent": given what's already been
- *                        chosen and how much budget is left, recommend the
- *                        single best next food (healthy + low-cost). The
- *                        caller accepts/rejects it and asks again, building
- *                        a plan one pick at a time — exactly the
- *                        select-one-then-suggest-the-next-one flow.
- * +analyzePreferences(...) — spending/value insights for the dashboard.
+ * +recommendMeals(Student): List  — matches the UML diagram: the top 7
+ *                        low-cost, high-nutrition food items the student
+ *                        can afford, sorted ascending by price (cheapest
+ *                        first). Ranked by value score first (to pick the
+ *                        BEST 7, not just the cheapest 7), then the chosen
+ *                        7 are re-sorted by price ascending for display.
+ * +analyzePreferences(Student): void — matches the UML diagram: analyzes
+ *                        the student's dietary preference against the
+ *                        catalog and notifies them with a summary. It does
+ *                        not return the data directly (the diagram's return
+ *                        type is void) — see insightsSummary() below for
+ *                        the JSON payload the dashboard's Insights tab
+ *                        actually reads.
+ * +suggestNext(...)   — a second, complementary AI capability beyond the
+ *                        diagram: given what's already been chosen and how
+ *                        much budget is left, recommend the single best
+ *                        next food. The caller accepts/rejects it and asks
+ *                        again, building a plan one pick at a time.
  *
  * Ranking model: rather than pure "cheapest calories" (which favors junk
  * food), each candidate gets a composite VALUE SCORE that rewards protein
@@ -37,6 +48,26 @@ import java.util.stream.Collectors;
  */
 public class AIEngine {
     private static final double PROTEIN_WEIGHT = 1.6;
+    private static final int RECOMMENDATION_LIST_SIZE = 7;
+    private final NotificationService notificationService = new NotificationService();
+
+    /**
+     * Returns up to 7 low-cost, high-nutrition food items the student can
+     * currently afford, matching their dietary preference — the best value
+     * picks in the whole catalog, sorted ascending by price (cheapest
+     * first) for display.
+     */
+    public List<FoodItem> recommendMeals(Student student) throws SQLException {
+        double budget = student.calculateBudget();
+        List<FoodItem> catalog = FoodItemDao.findAll(student.getDietaryPreference());
+
+        return catalog.stream()
+                .filter(f -> f.getPrice() > 0 && f.getPrice() <= budget)
+                .sorted((a, b) -> Double.compare(valueScore(b), valueScore(a))) // best value first...
+                .limit(RECOMMENDATION_LIST_SIZE)
+                .sorted((a, b) -> Double.compare(a.getPrice(), b.getPrice()))   // ...then ascending by price for display
+                .collect(Collectors.toList());
+    }
 
     /**
      * Suggests the single best next food item: highest value score among
@@ -64,11 +95,30 @@ public class AIEngine {
     }
 
     /**
-     * Looks at the student's dietary preference and the current catalog to
-     * surface simple, explainable insights (cheapest item, best all-round
-     * value pick) for the dashboard's Insights tab.
+     * Matches the UML diagram exactly: analyzes the student's dietary
+     * preference against the catalog and notifies them — no return value.
      */
-    public Map<String, Object> analyzePreferences(Student student) throws SQLException {
+    public void analyzePreferences(Student student) throws SQLException {
+        Map<String, Object> summary = insightsSummary(student);
+        String message;
+        if (summary.containsKey("insight")) {
+            message = String.valueOf(summary.get("insight"));
+        } else {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> bestValue = (Map<String, Object>) summary.get("bestValueOption");
+            message = String.format("Best value pick right now: %s at %s per serving.",
+                    bestValue.get("name"), bestValue.get("price"));
+        }
+        notificationService.notify(student.getUserId(), message);
+    }
+
+    /**
+     * The JSON payload behind analyzePreferences()'s analysis — used by the
+     * API layer (StudentController) to answer the dashboard's Insights tab.
+     * Kept as a separate method (rather than analyzePreferences's return
+     * type) because the UML specifies analyzePreferences returns void.
+     */
+    public Map<String, Object> insightsSummary(Student student) throws SQLException {
         List<FoodItem> catalog = FoodItemDao.findAll(student.getDietaryPreference());
         Map<String, Object> result = new LinkedHashMap<>();
         if (catalog.isEmpty()) {

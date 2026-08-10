@@ -72,6 +72,13 @@
         </div>
       </div>
 
+      <div class="card" style="margin-top:18px;">
+        <span class="eyebrow">Top 7 picks</span>
+        <h2>Low cost, high nutrition — cheapest first</h2>
+        <p>The AI Engine's best all-round value picks in the whole catalog right now, ranked by nutrition-per-dollar then sorted ascending by price.</p>
+        <div id="top7List"><div class="empty">Loading…</div></div>
+      </div>
+
       <div class="card" id="suggestionCard" style="display:none; margin-top:18px;">
         <span class="eyebrow">Suggested next</span>
         <div id="suggestionBody"></div>
@@ -163,7 +170,7 @@
     document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
     document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
     if (t.dataset.tab === 'insights') loadInsights();
-    if (t.dataset.tab === 'meals') loadPlanHistory();
+    if (t.dataset.tab === 'meals') { loadPlanHistory(); loadTop7(); }
   }));
 
   function gaugeClass(pct) {
@@ -343,6 +350,24 @@
             <div class="meta">${Number(p.totalCalories)} kcal</div>
           </div>
           <span class="price">${money(p.totalCost)}</span>
+        </div>`).join('');
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  async function loadTop7() {
+    try {
+      const { recommendations } = await Api.recommendMeals();
+      const el = document.getElementById('top7List');
+      if (!recommendations.length) { el.innerHTML = '<div class="empty">No items match your dietary preference right now.</div>'; return; }
+      el.innerHTML = recommendations.map((it) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(it.name)}</div>
+            <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
+          </div>
+          <span class="price">${money(it.price)}</span>
         </div>`).join('');
     } catch (err) {
       showError('errorBanner', err.message);

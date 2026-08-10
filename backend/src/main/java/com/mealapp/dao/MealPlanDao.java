@@ -22,20 +22,30 @@ public final class MealPlanDao {
         public PlanItem(FoodItem item, int quantity) { this.item = item; this.quantity = quantity; }
     }
 
+    public static class CreatedPlan {
+        public final String planId;
+        public final java.time.LocalDate planDate;
+        public CreatedPlan(String planId, java.time.LocalDate planDate) { this.planId = planId; this.planDate = planDate; }
+    }
+
     /** Persists a finished plan (list of chosen food items) for a student. */
-    public static String createPlan(String studentId, List<FoodItem> items, double totalCalories, double totalCost) throws SQLException {
+    public static CreatedPlan createPlan(String studentId, List<FoodItem> items, double totalCalories, double totalCost) throws SQLException {
         String planId = UUID.randomUUID().toString();
         Connection c = Database.borrow();
         try {
             c.setAutoCommit(false);
+            java.time.LocalDate planDate;
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO meal_plans (plan_id, student_id, plan_date, plan_type, total_calories, total_cost, generated_by_ai) " +
-                    "VALUES (?::uuid, ?::uuid, CURRENT_DATE, 'PERSONALIZED', ?, ?, true)")) {
+                    "VALUES (?::uuid, ?::uuid, CURRENT_DATE, 'PERSONALIZED', ?, ?, true) RETURNING plan_date")) {
                 ps.setString(1, planId);
                 ps.setString(2, studentId);
                 ps.setDouble(3, totalCalories);
                 ps.setDouble(4, totalCost);
-                ps.executeUpdate();
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    planDate = rs.getObject("plan_date", java.time.LocalDate.class);
+                }
             }
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO meal_plan_items (meal_plan_item_id, plan_id, item_id, quantity) VALUES (?::uuid, ?::uuid, ?::uuid, ?) " +
@@ -50,12 +60,57 @@ public final class MealPlanDao {
                 ps.executeBatch();
             }
             c.commit();
-            return planId;
+            return new CreatedPlan(planId, planDate);
         } catch (SQLException e) {
             c.rollback();
             throw e;
         } finally {
             c.setAutoCommit(true);
+            Database.release(c);
+        }
+    }
+
+    /**
+     * Admin-facing: lists meal plans across ALL students (with student name/email
+     * attached), reflecting the Admin—MealPlan association in the UML — admins
+     * have system-wide visibility into meal plans, not just the food catalog.
+     */
+    public static List<Map<String, Object>> listAll(int limit) throws SQLException {
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT mp.plan_id, mp.plan_date, mp.plan_type, mp.total_calories, mp.total_cost, " +
+                "u.user_id AS student_id, u.name AS student_name, u.email AS student_email " +
+                "FROM meal_plans mp JOIN users u ON u.user_id = mp.student_id " +
+                "ORDER BY mp.created_at DESC LIMIT ?")) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Map<String, Object>> list = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("planId", rs.getString("plan_id"));
+                    m.put("planDate", rs.getDate("plan_date").toString());
+                    m.put("planType", rs.getString("plan_type"));
+                    m.put("totalCalories", rs.getDouble("total_calories"));
+                    m.put("totalCost", rs.getDouble("total_cost"));
+                    m.put("studentId", rs.getString("student_id"));
+                    m.put("studentName", rs.getString("student_name"));
+                    m.put("studentEmail", rs.getString("student_email"));
+                    list.add(m);
+                }
+                return list;
+            }
+        } finally {
+            Database.release(c);
+        }
+    }
+
+    public static int countAll() throws SQLException {
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM meal_plans");
+             ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return rs.getInt(1);
+        } finally {
             Database.release(c);
         }
     }

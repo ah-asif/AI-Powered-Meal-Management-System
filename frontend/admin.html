@@ -25,6 +25,7 @@
       <a href="#overview" class="active" data-tab="overview">Overview</a>
       <a href="#users" data-tab="users">Users</a>
       <a href="#catalog" data-tab="catalog">Food Catalog</a>
+      <a href="#mealplans" data-tab="mealplans">Meal Plans</a>
     </div>
 
     <div id="errorBanner" class="error-banner"></div>
@@ -95,6 +96,16 @@
         <div id="catalogList"><div class="empty">Loading…</div></div>
       </div>
     </section>
+
+    <!-- MEAL PLANS -->
+    <section id="tab-mealplans" style="display:none;">
+      <div class="card">
+        <span class="eyebrow">Admin—MealPlan</span>
+        <h2>All saved meal plans</h2>
+        <p>System-wide visibility into every meal plan students have built with the AI Engine, most recent first.</p>
+        <div id="mealPlansList"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -118,6 +129,7 @@
     document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
     if (t.dataset.tab === 'users') loadUsers();
     if (t.dataset.tab === 'catalog') loadCatalog();
+    if (t.dataset.tab === 'mealplans') loadMealPlans();
   }));
 
   function escapeHtml(str) {
@@ -229,6 +241,25 @@
       showError('errorBanner', err.message);
     }
   });
+
+  async function loadMealPlans() {
+    const el = document.getElementById('mealPlansList');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const { mealPlans } = await Api.adminListMealPlans();
+      if (!mealPlans.length) { el.innerHTML = '<div class="empty">No meal plans saved yet.</div>'; return; }
+      el.innerHTML = mealPlans.map((p) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(p.studentName)} <span class="badge" style="margin-left:6px;">${new Date(p.planDate).toLocaleDateString()}</span></div>
+            <div class="meta">${escapeHtml(p.studentEmail)} · ${Number(p.totalCalories)} kcal</div>
+          </div>
+          <span class="price">${money(p.totalCost)}</span>
+        </div>`).join('');
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
 
   loadOverview();
 </script>

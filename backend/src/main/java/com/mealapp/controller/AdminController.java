@@ -46,6 +46,23 @@ public class AdminController {
         HttpUtil.sendJson(exchange, 200, result);
     }
 
+    /**
+     * GET /api/admin/meal-plans
+     * Matches the UML diagram's Admin—MealPlan association: system-wide
+     * visibility into meal plans across all students.
+     */
+    public void listMealPlans(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Admin admin = loadAdmin(ctx.userId);
+        if (admin == null) { HttpUtil.sendError(exchange, 404, "Admin not found"); return; }
+        Map<String, String> query = HttpUtil.parseQuery(exchange);
+        int limit = 50;
+        try { if (query.get("limit") != null) limit = Integer.parseInt(query.get("limit")); } catch (NumberFormatException ignored) { }
+        List<Map<String, Object>> plans = admin.manageMealPlans(limit);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("mealPlans", plans);
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
     public void listFoodItems(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
         List<FoodItem> items = FoodItemDao.findAll(null);
         Map<String, Object> result = new LinkedHashMap<>();

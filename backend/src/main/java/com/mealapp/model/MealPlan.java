@@ -1,5 +1,6 @@
 package com.mealapp.model;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -10,11 +11,13 @@ import java.util.List;
 public abstract class MealPlan {
     protected String planId;
     protected String studentId;
+    protected LocalDate date;
     protected List<FoodItem> items;
 
-    protected MealPlan(String planId, String studentId, List<FoodItem> items) {
+    protected MealPlan(String planId, String studentId, LocalDate date, List<FoodItem> items) {
         this.planId = planId;
         this.studentId = studentId;
+        this.date = date;
         this.items = items;
     }
 
@@ -28,5 +31,7 @@ public abstract class MealPlan {
     }
 
     public String getPlanId() { return planId; }
+    public String getStudentId() { return studentId; }
+    public LocalDate getDate() { return date; }
     public List<FoodItem> getItems() { return items; }
 }

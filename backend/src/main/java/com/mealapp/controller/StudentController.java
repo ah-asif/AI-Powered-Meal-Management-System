@@ -88,6 +88,22 @@ public class StudentController {
     }
 
     /**
+     * GET /api/students/foods/recommendations
+     * Matches the UML diagram's AIEngine.recommendMeals(Student): List —
+     * up to 7 low-cost, high-nutrition food items the student can currently
+     * afford, sorted ascending by price (cheapest first).
+     */
+    public void recommendMeals(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Student student = loadStudent(ctx.userId);
+        if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
+        List<FoodItem> recommendations = aiEngine.recommendMeals(student);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("recommendations", recommendations.stream().map(FoodItem::toJson).collect(Collectors.toList()));
+        result.put("count", recommendations.size());
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /**
      * POST /api/students/foods/suggest
      * body: { selectedItemIds: [...], excludedItemIds: [...] }
      *
@@ -154,12 +170,13 @@ public class StudentController {
             items.add(item);
         }
 
-        PersonalizedMealPlan plan = PersonalizedMealPlan.save(ctx.userId, items);
+        PersonalizedMealPlan plan = PersonalizedMealPlan.save(ctx.userId, items, aiEngine);
         notificationService.notify(ctx.userId,
                 String.format("Your meal plan is ready: %.0f kcal for $%.2f.", plan.calculateNutrition(), plan.calculateCost()));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("planId", plan.getPlanId());
+        result.put("planDate", plan.getDate() == null ? null : plan.getDate().toString());
         result.put("totalCalories", plan.calculateNutrition());
         result.put("totalCost", plan.calculateCost());
         result.put("items", items.stream().map(FoodItem::toJson).collect(Collectors.toList()));
@@ -181,7 +198,21 @@ public class StudentController {
     public void insights(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
         Student student = loadStudent(ctx.userId);
         if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
-        HttpUtil.sendJson(exchange, 200, aiEngine.analyzePreferences(student));
+        Map<String, Object> summary = aiEngine.insightsSummary(student);
+        HttpUtil.sendJson(exchange, 200, summary);
+    }
+
+    /**
+     * POST /api/students/insights/analyze
+     * Matches the UML diagram's AIEngine.analyzePreferences(Student): void
+     * exactly — triggers the analysis and sends the student a notification
+     * with the result, rather than returning data directly.
+     */
+    public void analyzePreferences(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Student student = loadStudent(ctx.userId);
+        if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
+        aiEngine.analyzePreferences(student);
+        HttpUtil.sendJson(exchange, 200, HttpUtil.map("message", "Preference analysis complete — check your notifications."));
     }
 
     public void listNotifications(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {

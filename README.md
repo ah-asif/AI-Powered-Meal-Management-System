@@ -26,21 +26,41 @@ User (abstract)
  └─ Admin
 
 Student 1───1 Budget 1───* Expense
-Admin   1───* MealPlan (abstract)
-              └─ PersonalizedMealPlan ──uses──> AIEngine
+Admin   1───* MealPlan (abstract)      Admin ──views──> MealPlan (all students)
+              └─ PersonalizedMealPlan ──owns──> AIEngine
 MealPlan *───* FoodItem   (via meal_plan_items)
 ```
 
 This maps directly onto the project's UML diagram (`docs/architecture.png`)
 and the PostgreSQL schema in `database/schema.sql`. `backend/src/main/java/com/mealapp/interfaces/`
 holds `INotifiable` and `IBudgetManageable` as real Java interfaces,
-implemented by `Student`.
+implemented by `Student`. `MealPlan` carries `-planId`/`-date`;
+`PersonalizedMealPlan` carries `-aiEngine: AIEngine` as a real field, not
+just an association in a comment.
 
-### The AI Engine — how the sequential suggestion works
+### The AI Engine — three ways to get suggestions
 
-`backend/src/main/java/com/mealapp/service/AIEngine.java` is the agent. It
-doesn't generate a whole plan in one shot — it suggests **one** food at a
-time, the way you asked:
+`backend/src/main/java/com/mealapp/service/AIEngine.java` has three public
+methods. Two match the UML diagram's signatures exactly; one is an addition
+for the one-at-a-time interactive flow.
+
+**`recommendMeals(Student): List<FoodItem>`** *(matches the diagram)* —
+returns the top 7 low-cost, high-nutrition items in the whole catalog the
+student can currently afford, sorted **ascending by price** (cheapest
+first). Backing `GET /api/students/foods/recommendations`, shown as the
+"Top 7 picks" panel on the dashboard.
+
+**`analyzePreferences(Student): void`** *(matches the diagram)* — analyzes
+the catalog against the student's dietary preference and sends them a
+notification with the result. Since the diagram specifies `void`, this
+method does not return data directly — `POST /api/students/insights/analyze`
+triggers it. The JSON the dashboard's Insights tab actually reads comes
+from a separate `insightsSummary(Student): Map` helper (Java can't overload
+a method by return type alone, so this had to be a different method name).
+
+**`suggestNext(Student, excludedIds, remainingBudget): FoodItem`**
+*(not in the diagram — added for the interactive flow)* — doesn't generate
+a whole plan in one shot; suggests **one** food at a time:
 
 1. The frontend calls `POST /api/students/foods/suggest` with whatever's
    already been accepted (`selectedItemIds`) and skipped (`excludedItemIds`).
@@ -57,15 +77,20 @@ time, the way you asked:
    Multiplying protein grams by 4 converts them to calories-from-protein
    (protein is ~4 kcal/g); the 1.6 weight then rewards protein-dense food
    over plain empty calories at the same price — a simple, fully
-   explainable stand-in for "healthy," not just "cheap."
+   explainable stand-in for "healthy," not just "cheap." `recommendMeals`
+   uses the same value score to pick its top 7.
 4. The highest-scoring item is returned as the one suggestion.
 5. The student accepts (it's added to `selectedItemIds`) or skips (added to
    `excludedItemIds`), and the frontend calls `/foods/suggest` again for the
    next one. Repeat until happy, then `POST /api/students/meal-plans` with
    the final `itemIds` list to save it.
 
-`analyzePreferences()` on the same engine also powers the dashboard's
-Insights tab (cheapest item, best all-round value pick, catalog averages).
+### Admin ↔ MealPlan
+
+The diagram draws an association from `Admin` down to `MealPlan`. This is
+implemented as `Admin.manageMealPlans()`, backing `GET /api/admin/meal-plans`
+— admins get system-wide visibility into every saved plan (with the
+student's name/email attached), not just users and the food catalog.
 
 ---
 
@@ -184,13 +209,16 @@ All routes are prefixed `/api`. Student/Admin routes require
 | GET | `/students/dashboard` | Budget + recent plans summary |
 | GET/POST | `/students/budget` | View / start a budget period |
 | GET/POST | `/students/expenses` | List / log an expense |
-| **POST** | **`/students/foods/suggest`** | **The AI agent — suggest one next food** |
+| **POST** | **`/students/foods/suggest`** | **AIEngine.suggestNext — suggest one next food** |
+| **GET** | **`/students/foods/recommendations`** | **AIEngine.recommendMeals — top 7, low cost first** |
 | POST | `/students/meal-plans` | Save the plan the student built |
 | GET | `/students/meal-plans` / `/:planId` | Plan history / detail |
-| GET | `/students/insights` | AI-driven spending insights |
+| GET | `/students/insights` | Insights JSON for the dashboard |
+| POST | `/students/insights/analyze` | AIEngine.analyzePreferences — notifies the student |
 | GET | `/students/notifications` | Notification inbox |
 | GET | `/admin/dashboard` | System-wide stats |
 | GET/DELETE | `/admin/users` | List / remove users |
+| **GET** | **`/admin/meal-plans`** | **Admin—MealPlan association — view all students' plans** |
 | GET/POST/PATCH/DELETE | `/admin/food-items` | Manage the catalog the AI Engine draws from |
 
 **Example: the suggestion loop**
