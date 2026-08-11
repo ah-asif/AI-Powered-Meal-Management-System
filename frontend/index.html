@@ -8,67 +8,77 @@
 </head>
 <body>
 <div class="app-shell">
-  <div class="auth-wrap">
-    <div class="auth-card">
-      <div style="text-align:center; margin-bottom:22px;">
-        <div class="brand" style="justify-content:center; font-size:24px;">
-          <span class="tag">$</span> MealLedger
+  <div class="auth-shell">
+    <div class="auth-hero">
+      <div class="brand"><span class="tag">$</span> MealLedger</div>
+      <h1>The most food for the least money.</h1>
+      <p class="pitch">Set a budget. The AI Engine reads your remaining balance and dietary preference, then suggests one healthy, low-cost food at a time — accept it or skip it, and it locks onto the next best pick the same way.</p>
+
+      <div class="signal-card">
+        <div class="signal-card-inner">
+          <span class="eyebrow">AI Engine · live pick</span>
+          <div class="si-name">Rice &amp; Lentil Bowl</div>
+          <div class="si-meta">lunch · 520 kcal · 18g protein</div>
+          <div class="si-price">$1.80</div>
         </div>
-        <p style="margin-top:8px;">The most food for the least money — planned by an AI agent that never overspends.</p>
       </div>
+    </div>
 
-      <div class="card">
-        <div class="auth-tabs">
-          <button id="tabLogin" class="active" type="button">Sign in</button>
-          <button id="tabRegister" type="button">Create account</button>
-        </div>
+    <div class="auth-panel">
+      <div class="auth-card">
+        <div class="card">
+          <div class="auth-tabs">
+            <button id="tabLogin" class="active" type="button">Sign in</button>
+            <button id="tabRegister" type="button">Create account</button>
+          </div>
 
-        <div id="errorBanner" class="error-banner"></div>
+          <div id="errorBanner" class="error-banner"></div>
 
-        <!-- LOGIN FORM -->
-        <form id="loginForm">
-          <label for="loginEmail">Email</label>
-          <input id="loginEmail" type="email" placeholder="student@meal.app" required>
-          <label for="loginPassword">Password</label>
-          <input id="loginPassword" type="password" placeholder="••••••••" required>
-          <button class="btn block" style="margin-top:18px;" type="submit" id="loginBtn">Sign in</button>
-          <p style="font-size:12px; margin-top:14px; text-align:center;">
-            Demo: <strong>student@meal.app</strong> / Student@123 &nbsp;·&nbsp; <strong>admin@meal.app</strong> / Admin@123
-          </p>
-        </form>
+          <!-- LOGIN FORM -->
+          <form id="loginForm">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" placeholder="student@meal.app" required>
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" placeholder="••••••••" required>
+            <button class="btn block" style="margin-top:18px;" type="submit" id="loginBtn">Sign in</button>
+            <p style="font-size:12px; margin-top:14px; text-align:center;">
+              Demo: <strong>student@meal.app</strong> / Student@123 &nbsp;·&nbsp; <strong>admin@meal.app</strong> / Admin@123
+            </p>
+          </form>
 
-        <!-- REGISTER FORM -->
-        <form id="registerForm" style="display:none;">
-          <label for="regName">Full name</label>
-          <input id="regName" type="text" placeholder="Alex Rivera" required>
-          <label for="regEmail">Email</label>
-          <input id="regEmail" type="email" placeholder="you@campus.edu" required>
-          <label for="regPassword">Password</label>
-          <input id="regPassword" type="password" placeholder="At least 8 characters" required minlength="6">
-          <div class="form-row">
-            <div>
-              <label for="regRole">I am a</label>
-              <select id="regRole">
-                <option value="STUDENT">Student</option>
-                <option value="ADMIN">Admin</option>
+          <!-- REGISTER FORM -->
+          <form id="registerForm" style="display:none;">
+            <label for="regName">Full name</label>
+            <input id="regName" type="text" placeholder="Alex Rivera" required>
+            <label for="regEmail">Email</label>
+            <input id="regEmail" type="email" placeholder="you@campus.edu" required>
+            <label for="regPassword">Password</label>
+            <input id="regPassword" type="password" placeholder="At least 8 characters" required minlength="6">
+            <div class="form-row">
+              <div>
+                <label for="regRole">I am a</label>
+                <select id="regRole">
+                  <option value="STUDENT">Student</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+              <div id="budgetField">
+                <label for="regBudget">Weekly budget ($)</label>
+                <input id="regBudget" type="number" min="0" step="0.5" placeholder="50">
+              </div>
+            </div>
+            <div id="dietField">
+              <label for="regDiet">Dietary preference</label>
+              <select id="regDiet">
+                <option value="none">No preference</option>
+                <option value="vegetarian">Vegetarian</option>
+                <option value="vegan">Vegan</option>
+                <option value="halal">Halal</option>
               </select>
             </div>
-            <div id="budgetField">
-              <label for="regBudget">Weekly budget ($)</label>
-              <input id="regBudget" type="number" min="0" step="0.5" placeholder="50">
-            </div>
-          </div>
-          <div id="dietField">
-            <label for="regDiet">Dietary preference</label>
-            <select id="regDiet">
-              <option value="none">No preference</option>
-              <option value="vegetarian">Vegetarian</option>
-              <option value="vegan">Vegan</option>
-              <option value="halal">Halal</option>
-            </select>
-          </div>
-          <button class="btn block" style="margin-top:18px;" type="submit" id="registerBtn">Create account</button>
-        </form>
+            <button class="btn block" style="margin-top:18px;" type="submit" id="registerBtn">Create account</button>
+          </form>
+        </div>
       </div>
     </div>
   </div>
