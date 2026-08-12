@@ -55,10 +55,13 @@ public class AuthController {
             BudgetDao.create(user.getUserId(), budgetLimit == null ? 0 : budgetLimit, null, null);
         }
 
-        notifyAdminsOfPendingApproval(user);
-
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("message", "Registration submitted. An administrator needs to approve your account before you can sign in.");
+        if ("ADMIN".equals(role)) {
+            notifyAdminsOfPendingApproval(user);
+            result.put("message", "Registration submitted. A super admin needs to approve your account before you can sign in.");
+        } else {
+            result.put("message", "Registration successful. You can now sign in.");
+        }
         result.put("user", user.toPublicJson());
         HttpUtil.sendJson(exchange, 201, result);
     }

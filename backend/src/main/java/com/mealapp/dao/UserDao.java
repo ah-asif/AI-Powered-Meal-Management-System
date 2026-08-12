@@ -44,21 +44,25 @@ public final class UserDao {
                                Double budgetLimit, String dietaryPreference) throws SQLException {
         String userId = UUID.randomUUID().toString();
         String hash = PasswordUtil.hash(plainPassword);
+        // Students never need approval; only ADMIN signups start PENDING and
+        // require a super admin to approve them (see AuthController.register).
+        String status = "STUDENT".equals(role) ? "APPROVED" : "PENDING";
         Connection c = Database.borrow();
         try (PreparedStatement ps = c.prepareStatement(
-                "INSERT INTO users (user_id, name, email, password_hash, role, budget_limit, dietary_preference) " +
-                "VALUES (?::uuid, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO users (user_id, name, email, password_hash, role, status, budget_limit, dietary_preference) " +
+                "VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?)")) {
             ps.setString(1, userId);
             ps.setString(2, name);
             ps.setString(3, email);
             ps.setString(4, hash);
             ps.setString(5, role);
+            ps.setString(6, status);
             if ("STUDENT".equals(role)) {
-                ps.setDouble(6, budgetLimit == null ? 0 : budgetLimit);
-                ps.setString(7, dietaryPreference == null ? "none" : dietaryPreference);
+                ps.setDouble(7, budgetLimit == null ? 0 : budgetLimit);
+                ps.setString(8, dietaryPreference == null ? "none" : dietaryPreference);
             } else {
-                ps.setNull(6, Types.NUMERIC);
-                ps.setNull(7, Types.VARCHAR);
+                ps.setNull(7, Types.NUMERIC);
+                ps.setNull(8, Types.VARCHAR);
             }
             ps.executeUpdate();
         } finally {
