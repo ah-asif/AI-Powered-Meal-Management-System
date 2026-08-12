@@ -52,18 +52,25 @@
     <!-- APPROVALS -->
     <section id="tab-approvals" style="display:none;">
       <div class="card">
-        <span class="eyebrow">Account approval</span>
-        <h2>Pending signups</h2>
+        <div class="section-head" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <div style="flex-grow:1;">
+            <span class="eyebrow">Account approval</span>
+            <h2 style="margin:0;">Pending signups</h2>
+          </div>
+          <input type="text" id="approvalSearch" placeholder="Search pending..." style="width:auto; min-width:200px;">
+        </div>
         <p id="approvalsNote">Approve or reject new Student and Admin accounts before they can sign in.</p>
         <div id="approvalsList"><div class="empty">Loading…</div></div>
+        <div id="approvalsPagination"></div>
       </div>
     </section>
 
     <!-- USERS -->
     <section id="tab-users" style="display:none;">
       <div class="card">
-        <div class="section-head">
-          <h2>All users</h2>
+        <div class="section-head" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+          <h2 style="margin:0; flex-grow:1;">All users</h2>
+          <input type="text" id="userSearch" placeholder="Search name or email..." style="width:auto; min-width:200px;">
           <select id="roleFilter" style="width:auto;">
             <option value="">All roles</option>
             <option value="STUDENT">Students</option>
@@ -71,6 +78,7 @@
           </select>
         </div>
         <div id="userList"><div class="empty">Loading…</div></div>
+        <div id="usersPagination"></div>
       </div>
     </section>
 
@@ -112,18 +120,28 @@
       </div>
 
       <div class="card" style="margin-top:18px;">
-        <h2>Catalog</h2>
+        <div class="section-head" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+          <h2 style="margin:0; flex-grow:1;">Catalog</h2>
+          <input type="text" id="catalogSearch" placeholder="Search catalog..." style="width:auto; min-width:200px;">
+        </div>
         <div id="catalogList"><div class="empty">Loading…</div></div>
+        <div id="catalogPagination"></div>
       </div>
     </section>
 
     <!-- MEAL PLANS -->
     <section id="tab-mealplans" style="display:none;">
       <div class="card">
-        <span class="eyebrow">Admin—MealPlan</span>
-        <h2>All saved meal plans</h2>
+        <div class="section-head" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+          <div style="flex-grow:1;">
+            <span class="eyebrow">Admin—MealPlan</span>
+            <h2 style="margin:0;">All saved meal plans</h2>
+          </div>
+          <input type="text" id="mealPlanSearch" placeholder="Search name or email..." style="width:auto; min-width:220px;">
+        </div>
         <p>System-wide visibility into every meal plan students have built with the AI Engine, most recent first.</p>
         <div id="mealPlansList"><div class="empty">Loading…</div></div>
+        <div id="mealPlansPagination"></div>
       </div>
     </section>
   </div>
@@ -140,9 +158,26 @@
     window.location.href = 'index.html';
   });
 
+  const PAGE_SIZE = 5;
+  const state = {
+    users: { page: 1, search: '' },
+    catalog: { page: 1, search: '' },
+    approvals: { page: 1, search: '' },
+    mealPlans: { page: 1, search: '' }
+  };
+
+  function clearError() {
+    const banner = document.getElementById('errorBanner');
+    if (banner) {
+      banner.textContent = '';
+      banner.style.display = 'none';
+    }
+  }
+
   const tabs = document.querySelectorAll('.nav-tabs a');
   tabs.forEach((t) => t.addEventListener('click', (e) => {
     e.preventDefault();
+    clearError();
     tabs.forEach((x) => x.classList.remove('active'));
     t.classList.add('active');
     document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
@@ -157,6 +192,40 @@
     const div = document.createElement('div');
     div.textContent = str == null ? '' : String(str);
     return div.innerHTML;
+  }
+
+  function renderPagination(containerId, totalItems, currentPage, onPageChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let html = `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">`;
+    html += `<span style="font-size:12px; opacity:0.7;">Page ${currentPage} of ${totalPages} (${totalItems} items)</span>`;
+    html += `<div style="display:flex; gap:6px;">`;
+    html += `<button class="btn-ghost" style="padding:4px 10px; font-size:12px;" ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}">Prev</button>`;
+
+    for (let i = 1; i <= totalPages; i++) {
+      const activeStyle = i === currentPage ? 'background:rgba(255,255,255,0.15); font-weight:bold;' : '';
+      html += `<button class="btn-ghost" style="padding:4px 10px; font-size:12px; ${activeStyle}" data-page="${i}">${i}</button>`;
+    }
+
+    html += `<button class="btn-ghost" style="padding:4px 10px; font-size:12px;" ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}">Next</button>`;
+    html += `</div></div>`;
+
+    container.innerHTML = html;
+    container.querySelectorAll('button[data-page]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pageNum = Number(btn.dataset.page);
+        if (pageNum >= 1 && pageNum <= totalPages) {
+          onPageChange(pageNum);
+        }
+      });
+    });
   }
 
   async function loadOverview() {
@@ -202,18 +271,45 @@
       document.getElementById('approvalsNote').textContent = isSuperAdmin
         ? 'Approve or reject new Student and Admin accounts before they can sign in.'
         : 'Approve or reject new Student accounts. Only the super admin can approve Admin accounts.';
-      if (!pending.length) { el.innerHTML = '<div class="empty">No pending signups right now.</div>'; return; }
-      el.innerHTML = pending.map((u) => `
+
+      const query = state.approvals.search.toLowerCase().trim();
+      const filtered = pending.filter((u) => 
+        u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+      );
+
+      if (!filtered.length) { 
+        el.innerHTML = '<div class="empty">No pending signups found.</div>';
+        renderPagination('approvalsPagination', 0, 1, () => {});
+        return; 
+      }
+
+      const totalItems = filtered.length;
+      const start = (state.approvals.page - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      el.innerHTML = paginated.map((u, index) => {
+        const serial = start + index + 1;
+        return `
         <div class="meal-item">
           <div>
-            <div class="name">${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span></div>
+            <div class="name">
+              <span style="color: #888; font-weight: 600; margin-right: 4px;">${serial}.</span>
+              ${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span>
+            </div>
             <div class="meta">${escapeHtml(u.email)} · requested ${new Date(u.createdAt).toLocaleString()}</div>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn" data-approve="${u.userId}" style="padding:6px 14px; font-size:12px;">Approve</button>
             <button class="btn danger" data-reject="${u.userId}" style="padding:6px 14px; font-size:12px;">Reject</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+
+      renderPagination('approvalsPagination', totalItems, state.approvals.page, (newPage) => {
+        state.approvals.page = newPage;
+        loadApprovals();
+      });
+
       el.querySelectorAll('button[data-approve]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           btn.disabled = true;
@@ -246,8 +342,15 @@
     } catch (err) {
       showError('errorBanner', err.message);
       el.innerHTML = '<div class="empty">Couldn\'t load pending signups.</div>';
+      renderPagination('approvalsPagination', 0, 1, () => {});
     }
   }
+
+  document.getElementById('approvalSearch').addEventListener('input', (e) => {
+    state.approvals.search = e.target.value;
+    state.approvals.page = 1;
+    loadApprovals();
+  });
 
   async function loadUsers() {
     const el = document.getElementById('userList');
@@ -255,15 +358,42 @@
     try {
       const role = document.getElementById('roleFilter').value;
       const { users } = await Api.adminUsers(role);
-      if (!users.length) { el.innerHTML = '<div class="empty">No users found.</div>'; return; }
-      el.innerHTML = users.map((u) => `
+
+      const query = state.users.search.toLowerCase().trim();
+      const filtered = users.filter((u) =>
+        u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+      );
+
+      if (!filtered.length) { 
+        el.innerHTML = '<div class="empty">No users found.</div>';
+        renderPagination('usersPagination', 0, 1, () => {});
+        return; 
+      }
+
+      const totalItems = filtered.length;
+      const start = (state.users.page - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      el.innerHTML = paginated.map((u, index) => {
+        const serial = start + index + 1;
+        return `
         <div class="meal-item">
           <div>
-            <div class="name">${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span></div>
+            <div class="name">
+              <span style="color: #888; font-weight: 600; margin-right: 4px;">${serial}.</span>
+              ${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span>
+            </div>
             <div class="meta">${escapeHtml(u.email)}${u.role === 'STUDENT' ? ` · budget ${money(u.budgetLimit)} · ${escapeHtml(u.dietaryPreference || 'none')}` : ''}</div>
           </div>
           <button class="btn danger" data-id="${u.userId}" style="padding:6px 12px; font-size:12px;">Remove</button>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+
+      renderPagination('usersPagination', totalItems, state.users.page, (newPage) => {
+        state.users.page = newPage;
+        loadUsers();
+      });
+
       el.querySelectorAll('button[data-id]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           if (!confirm('Remove this user? This cannot be undone.')) return;
@@ -279,27 +409,67 @@
       });
     } catch (err) {
       showError('errorBanner', err.message);
+      renderPagination('usersPagination', 0, 1, () => {});
     }
   }
-  document.getElementById('roleFilter').addEventListener('change', loadUsers);
+
+  document.getElementById('userSearch').addEventListener('input', (e) => {
+    state.users.search = e.target.value;
+    state.users.page = 1;
+    loadUsers();
+  });
+
+  document.getElementById('roleFilter').addEventListener('change', () => {
+    state.users.page = 1;
+    loadUsers();
+  });
 
   async function loadCatalog() {
     const el = document.getElementById('catalogList');
     el.innerHTML = '<div class="empty">Loading…</div>';
     try {
       const { foodItems } = await Api.adminListFoodItems();
-      if (!foodItems.length) { el.innerHTML = '<div class="empty">No food items yet.</div>'; return; }
-      el.innerHTML = foodItems.map((f) => `
+
+      const query = state.catalog.search.toLowerCase().trim();
+      const filtered = foodItems.filter((f) =>
+        f.name.toLowerCase().includes(query) ||
+        f.category.toLowerCase().includes(query) ||
+        (f.dietaryTags || []).some((t) => t.toLowerCase().includes(query))
+      );
+
+      if (!filtered.length) { 
+        el.innerHTML = '<div class="empty">No food items found.</div>';
+        renderPagination('catalogPagination', 0, 1, () => {});
+        return; 
+      }
+
+      const totalItems = filtered.length;
+      const start = (state.catalog.page - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      el.innerHTML = paginated.map((f, index) => {
+        const serial = start + index + 1;
+        return `
         <div class="meal-item">
           <div>
-            <div class="name">${escapeHtml(f.name)} <span class="badge" style="margin-left:6px;">${f.category}</span></div>
+            <div class="name">
+              <span style="color: #888; font-weight: 600; margin-right: 4px;">${serial}.</span>
+              ${escapeHtml(f.name)} <span class="badge" style="margin-left:6px;">${f.category}</span>
+            </div>
             <div class="meta">${f.calories} kcal · ${(f.dietaryTags || []).join(', ') || 'no tags'}</div>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             <span class="price">${money(f.price)}</span>
             <button class="btn danger" data-id="${f.itemId}" style="padding:6px 12px; font-size:12px;">Delete</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+
+      renderPagination('catalogPagination', totalItems, state.catalog.page, (newPage) => {
+        state.catalog.page = newPage;
+        loadCatalog();
+      });
+
       el.querySelectorAll('button[data-id]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           if (!confirm('Delete this food item from the catalog?')) return;
@@ -315,12 +485,19 @@
       });
     } catch (err) {
       showError('errorBanner', err.message);
+      renderPagination('catalogPagination', 0, 1, () => {});
     }
   }
 
+  document.getElementById('catalogSearch').addEventListener('input', (e) => {
+    state.catalog.search = e.target.value;
+    state.catalog.page = 1;
+    loadCatalog();
+  });
+
   document.getElementById('foodForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    showError('errorBanner', null);
+    clearError();
     try {
       const tags = document.getElementById('fTags').value
         .split(',').map((t) => t.trim()).filter(Boolean);
@@ -345,19 +522,53 @@
     el.innerHTML = '<div class="empty">Loading…</div>';
     try {
       const { mealPlans } = await Api.adminListMealPlans();
-      if (!mealPlans.length) { el.innerHTML = '<div class="empty">No meal plans saved yet.</div>'; return; }
-      el.innerHTML = mealPlans.map((p) => `
+
+      const query = state.mealPlans.search.toLowerCase().trim();
+      const filtered = mealPlans.filter((p) =>
+        (p.studentName || '').toLowerCase().includes(query) ||
+        (p.studentEmail || '').toLowerCase().includes(query)
+      );
+
+      if (!filtered.length) { 
+        el.innerHTML = '<div class="empty">No meal plans found.</div>';
+        renderPagination('mealPlansPagination', 0, 1, () => {});
+        return; 
+      }
+
+      const totalItems = filtered.length;
+      const start = (state.mealPlans.page - 1) * PAGE_SIZE;
+      const paginated = filtered.slice(start, start + PAGE_SIZE);
+
+      el.innerHTML = paginated.map((p, index) => {
+        const serial = start + index + 1;
+        return `
         <div class="meal-item">
           <div>
-            <div class="name">${escapeHtml(p.studentName)} <span class="badge" style="margin-left:6px;">${new Date(p.planDate).toLocaleDateString()}</span></div>
+            <div class="name">
+              <span style="color: #888; font-weight: 600; margin-right: 4px;">${serial}.</span>
+              ${escapeHtml(p.studentName)} <span class="badge" style="margin-left:6px;">${new Date(p.planDate).toLocaleDateString()}</span>
+            </div>
             <div class="meta">${escapeHtml(p.studentEmail)} · ${Number(p.totalCalories)} kcal</div>
           </div>
           <span class="price">${money(p.totalCost)}</span>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+
+      renderPagination('mealPlansPagination', totalItems, state.mealPlans.page, (newPage) => {
+        state.mealPlans.page = newPage;
+        loadMealPlans();
+      });
     } catch (err) {
       showError('errorBanner', err.message);
+      renderPagination('mealPlansPagination', 0, 1, () => {});
     }
   }
+
+  document.getElementById('mealPlanSearch').addEventListener('input', (e) => {
+    state.mealPlans.search = e.target.value;
+    state.mealPlans.page = 1;
+    loadMealPlans();
+  });
 
   loadOverview();
 </script>
