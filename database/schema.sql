@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS users (
     email           VARCHAR(180)  NOT NULL UNIQUE,
     password_hash   VARCHAR(255)  NOT NULL,
     role            VARCHAR(20)   NOT NULL CHECK (role IN ('STUDENT', 'ADMIN')),
+    -- Account approval workflow: every new signup starts PENDING and can't
+    -- log in until an admin approves it. Regular admins can approve pending
+    -- STUDENT accounts; only a super-admin (is_super_admin = true) can
+    -- approve pending ADMIN accounts, so admins can't approve each other in.
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    is_super_admin  BOOLEAN       NOT NULL DEFAULT false,
     -- Student-only fields (NULL for Admin rows)
     budget_limit        NUMERIC(10, 2) DEFAULT NULL,
     dietary_preference   VARCHAR(50)    DEFAULT NULL, -- e.g. 'vegetarian','vegan','halal','none'
@@ -28,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 
 -- ---------------------------------------------------------
 -- BUDGET  (1-1 with a Student)
@@ -67,7 +74,7 @@ CREATE TABLE IF NOT EXISTS food_items (
     price           NUMERIC(10, 2) NOT NULL CHECK (price >= 0),
     calories        INTEGER NOT NULL CHECK (calories >= 0),
     protein_g       NUMERIC(6, 2) DEFAULT 0,
-    category        VARCHAR(50)  NOT NULL DEFAULT 'general', -- breakfast/lunch/dinner/snack
+    category        VARCHAR(50)  NOT NULL DEFAULT 'general', -- breakfast/lunch/dinner/other
     dietary_tags    TEXT[] NOT NULL DEFAULT '{}',             -- {'vegetarian','vegan','halal',...}
     vendor          VARCHAR(120),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -78,6 +85,10 @@ CREATE INDEX IF NOT EXISTS idx_food_items_tags ON food_items USING GIN (dietary_
 
 -- ---------------------------------------------------------
 -- MEAL PLAN  (abstract in UML -> single-table with plan_type)
+-- Every saved plan doubles as the student's "what did I eat" log —
+-- meal_plan_items carries the category + calories/protein snapshot at
+-- the time it was eaten, so later catalog price/nutrition edits don't
+-- rewrite history.
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS meal_plans (
     plan_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
