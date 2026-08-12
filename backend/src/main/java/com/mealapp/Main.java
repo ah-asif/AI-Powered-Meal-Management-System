@@ -65,18 +65,24 @@ public class Main {
         router.authRoute("GET", "/api/students/expenses", "STUDENT", studentController::listExpenses);
         router.authRoute("POST", "/api/students/expenses", "STUDENT", studentController::addExpense);
         router.authRoute("POST", "/api/students/foods/suggest", "STUDENT", studentController::suggestNextFood);
-        router.authRoute("GET", "/api/students/foods/recommendations", "STUDENT", studentController::recommendMeals);
+        router.authRoute("POST", "/api/students/foods/recommendations", "STUDENT", studentController::recommendMeals);
         router.authRoute("POST", "/api/students/meal-plans", "STUDENT", studentController::savePlan);
         router.authRoute("GET", "/api/students/meal-plans", "STUDENT", studentController::listMealPlans);
         router.authRoute("GET", "/api/students/meal-plans/:planId", "STUDENT", studentController::getMealPlan);
         router.authRoute("GET", "/api/students/insights", "STUDENT", studentController::insights);
         router.authRoute("POST", "/api/students/insights/analyze", "STUDENT", studentController::analyzePreferences);
         router.authRoute("GET", "/api/students/notifications", "STUDENT", studentController::listNotifications);
+        router.authRoute("GET", "/api/students/nutrition/summary", "STUDENT", studentController::nutritionSummary);
+        router.authRoute("GET", "/api/students/nutrition/log", "STUDENT", studentController::nutritionLog);
 
         // ---- admin ----
         router.authRoute("GET", "/api/admin/dashboard", "ADMIN", adminController::dashboard);
+        router.authRoute("GET", "/api/admin/notifications", "ADMIN", adminController::listNotifications);
         router.authRoute("GET", "/api/admin/users", "ADMIN", adminController::manageUsers);
         router.authRoute("DELETE", "/api/admin/users/:userId", "ADMIN", adminController::deleteUser);
+        router.authRoute("GET", "/api/admin/approvals", "ADMIN", adminController::listApprovals);
+        router.authRoute("POST", "/api/admin/approvals/:userId/approve", "ADMIN", adminController::approveUser);
+        router.authRoute("POST", "/api/admin/approvals/:userId/reject", "ADMIN", adminController::rejectUser);
         router.authRoute("GET", "/api/admin/meal-plans", "ADMIN", adminController::listMealPlans);
         router.authRoute("GET", "/api/admin/food-items", "ADMIN", adminController::listFoodItems);
         router.authRoute("POST", "/api/admin/food-items", "ADMIN", adminController::createFoodItem);

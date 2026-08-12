@@ -14,12 +14,20 @@ import java.util.stream.Collectors;
 /**
  * AIEngine
  * --------
- * +recommendMeals(Student): List  — matches the UML diagram: the top 7
+ * +recommendMeals(Student): List  — matches the UML diagram: the top 10
  *                        low-cost, high-nutrition food items the student
  *                        can afford, sorted ascending by price (cheapest
  *                        first). Ranked by value score first (to pick the
- *                        BEST 7, not just the cheapest 7), then the chosen
- *                        7 are re-sorted by price ascending for display.
+ *                        BEST 10, not just the cheapest 10), then the chosen
+ *                        10 are re-sorted by price ascending for display.
+ * +recommendMeals(Student, excluded, budgetOverride): List — an overload
+ *                        (same method name, different parameters — this is
+ *                        legitimate Java overloading, not a UML deviation)
+ *                        that powers the "add to cart" flow: each time the
+ *                        student clicks an item to add it, the frontend
+ *                        calls this again with that item's id excluded and
+ *                        the reduced remaining budget, so the list refreshes
+ *                        with 10 fresh options that still fit what's left.
  * +analyzePreferences(Student): void — matches the UML diagram: analyzes
  *                        the student's dietary preference against the
  *                        catalog and notifies them with a summary. It does
@@ -27,11 +35,10 @@ import java.util.stream.Collectors;
  *                        type is void) — see insightsSummary() below for
  *                        the JSON payload the dashboard's Insights tab
  *                        actually reads.
- * +suggestNext(...)   — a second, complementary AI capability beyond the
- *                        diagram: given what's already been chosen and how
- *                        much budget is left, recommend the single best
- *                        next food. The caller accepts/rejects it and asks
- *                        again, building a plan one pick at a time.
+ * +suggestNext(...)   — a third, complementary AI capability beyond the
+ *                        diagram: single best next item, kept for API
+ *                        completeness even though the primary UX is now
+ *                        the list-based "add to cart" flow above.
  *
  * Ranking model: rather than pure "cheapest calories" (which favors junk
  * food), each candidate gets a composite VALUE SCORE that rewards protein
@@ -44,25 +51,37 @@ import java.util.stream.Collectors;
  * (protein has ~4 kcal/g), then PROTEIN_WEIGHT up-weights that portion so
  * two items with identical calories-per-dollar are ranked apart by how
  * much of that energy is protein. This keeps the model simple and fully
- * explainable — no black box, no external AI service call.
+ * explainable — no black box, no external AI service call. Prices are in
+ * BDT, but the ranking math is currency-agnostic — it only compares prices
+ * to each other and to the student's own budget, never to a hardcoded
+ * threshold.
  */
 public class AIEngine {
     private static final double PROTEIN_WEIGHT = 1.6;
-    private static final int RECOMMENDATION_LIST_SIZE = 7;
+    private static final int RECOMMENDATION_LIST_SIZE = 10;
     private final NotificationService notificationService = new NotificationService();
 
     /**
-     * Returns up to 7 low-cost, high-nutrition food items the student can
+     * Returns up to 10 low-cost, high-nutrition food items the student can
      * currently afford, matching their dietary preference — the best value
      * picks in the whole catalog, sorted ascending by price (cheapest
-     * first) for display.
+     * first) for display. Equivalent to calling the cart-aware overload
+     * with no items excluded and the student's full remaining budget.
      */
     public List<FoodItem> recommendMeals(Student student) throws SQLException {
-        double budget = student.calculateBudget();
+        return recommendMeals(student, Set.of(), student.calculateBudget());
+    }
+
+    /**
+     * Cart-aware version: excludes items already added to the cart and
+     * ranks against whatever budget is left after those items' cost.
+     */
+    public List<FoodItem> recommendMeals(Student student, Set<String> excludedItemIds, double remainingBudget) throws SQLException {
         List<FoodItem> catalog = FoodItemDao.findAll(student.getDietaryPreference());
 
         return catalog.stream()
-                .filter(f -> f.getPrice() > 0 && f.getPrice() <= budget)
+                .filter(f -> !excludedItemIds.contains(f.getItemId()))
+                .filter(f -> f.getPrice() > 0 && f.getPrice() <= remainingBudget)
                 .sorted((a, b) -> Double.compare(valueScore(b), valueScore(a))) // best value first...
                 .limit(RECOMMENDATION_LIST_SIZE)
                 .sorted((a, b) -> Double.compare(a.getPrice(), b.getPrice()))   // ...then ascending by price for display

@@ -5,6 +5,7 @@ import com.mealapp.dao.UserDao;
 import com.mealapp.model.Admin;
 import com.mealapp.model.FoodItem;
 import com.mealapp.router.Router;
+import com.mealapp.service.NotificationService;
 import com.mealapp.util.HttpUtil;
 import com.mealapp.util.JsonUtil;
 import com.sun.net.httpserver.HttpExchange;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class AdminController {
+    private final NotificationService notificationService = new NotificationService();
 
     private Admin loadAdmin(String userId) throws Exception {
         var user = UserDao.findById(userId);
@@ -43,6 +45,51 @@ public class AdminController {
         if (!deleted) { HttpUtil.sendError(exchange, 404, "User not found"); return; }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("deleted", params.get("userId"));
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /** GET /api/admin/notifications */
+    public void listNotifications(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("notifications", notificationService.listForUser(ctx.userId));
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /**
+     * GET /api/admin/approvals
+     * Pending signups this admin is allowed to act on. A regular admin only
+     * sees pending STUDENT accounts; only a super admin sees pending ADMIN
+     * accounts too — enforced in Admin.pendingApprovals() / UserDao.listPending().
+     */
+    public void listApprovals(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Admin admin = loadAdmin(ctx.userId);
+        if (admin == null) { HttpUtil.sendError(exchange, 404, "Admin not found"); return; }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("pending", admin.pendingApprovals());
+        result.put("isSuperAdmin", admin.isSuperAdmin());
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /** POST /api/admin/approvals/:userId/approve */
+    public void approveUser(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Admin admin = loadAdmin(ctx.userId);
+        if (admin == null) { HttpUtil.sendError(exchange, 404, "Admin not found"); return; }
+        String targetUserId = params.get("userId");
+        admin.approveUser(targetUserId);
+        notificationService.notify(targetUserId, "Your account has been approved. You can now sign in.");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("approved", targetUserId);
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /** POST /api/admin/approvals/:userId/reject */
+    public void rejectUser(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Admin admin = loadAdmin(ctx.userId);
+        if (admin == null) { HttpUtil.sendError(exchange, 404, "Admin not found"); return; }
+        String targetUserId = params.get("userId");
+        admin.rejectUser(targetUserId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("rejected", targetUserId);
         HttpUtil.sendJson(exchange, 200, result);
     }
 

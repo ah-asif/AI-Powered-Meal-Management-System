@@ -20,9 +20,9 @@ public class Student extends User implements INotifiable, IBudgetManageable {
     private final double budgetLimit;
     private final String dietaryPreference;
 
-    public Student(String userId, String name, String email, String passwordHash,
+    public Student(String userId, String name, String email, String passwordHash, String status,
                    double budgetLimit, String dietaryPreference) {
-        super(userId, name, email, passwordHash);
+        super(userId, name, email, passwordHash, status);
         this.budgetLimit = budgetLimit;
         this.dietaryPreference = dietaryPreference == null ? "none" : dietaryPreference;
     }
@@ -33,11 +33,19 @@ public class Student extends User implements INotifiable, IBudgetManageable {
     public double getBudgetLimit() { return budgetLimit; }
     public String getDietaryPreference() { return dietaryPreference; }
 
+    /**
+     * Overview dashboard: budget status plus the AI Engine's nutrition
+     * tracking summary (overall spend, calories, and protein taken from
+     * every saved meal plan). Clicking into that summary on the frontend
+     * calls GET /api/students/nutrition/log for the day-by-day,
+     * meal-by-meal breakdown behind these totals.
+     */
     @Override
     public Map<String, Object> generateDashboard() throws SQLException {
         Budget budget = BudgetDao.findActiveForStudent(userId);
         List<Map<String, Object>> recentPlans = MealPlanDao.listForStudent(userId);
         if (recentPlans.size() > 5) recentPlans = recentPlans.subList(0, 5);
+        Map<String, Object> nutrition = MealPlanDao.nutritionSummary(userId);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("user", toPublicJson());
@@ -46,6 +54,7 @@ public class Student extends User implements INotifiable, IBudgetManageable {
         result.put("currentBudget", budget == null ? null : budget.toJson());
         result.put("remaining", budget == null ? budgetLimit : budget.calculateRemaining());
         result.put("recentMealPlans", recentPlans);
+        result.put("nutrition", nutrition);
         return result;
     }
 

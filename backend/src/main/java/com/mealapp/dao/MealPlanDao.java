@@ -178,4 +178,69 @@ public final class MealPlanDao {
             Database.release(c);
         }
     }
+
+    /**
+     * Overview tracking summary: overall spend, calories, and protein taken
+     * across every saved meal plan for this student. Backs the three stat
+     * cards at the top of the Overview tab.
+     */
+    public static Map<String, Object> nutritionSummary(String studentId) throws SQLException {
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT COALESCE(SUM(fi.price * mpi.quantity), 0) AS total_spent, " +
+                "COALESCE(SUM(fi.calories * mpi.quantity), 0) AS total_calories, " +
+                "COALESCE(SUM(fi.protein_g * mpi.quantity), 0) AS total_protein " +
+                "FROM meal_plan_items mpi " +
+                "JOIN meal_plans mp ON mp.plan_id = mpi.plan_id " +
+                "JOIN food_items fi ON fi.item_id = mpi.item_id " +
+                "WHERE mp.student_id = ?::uuid")) {
+            ps.setString(1, studentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("totalSpent", rs.getDouble("total_spent"));
+                m.put("totalCalories", rs.getDouble("total_calories"));
+                m.put("totalProtein", rs.getDouble("total_protein"));
+                return m;
+            }
+        } finally {
+            Database.release(c);
+        }
+    }
+
+    /**
+     * Overview drill-down: every food eaten, one row per meal-plan item,
+     * with its date and category (breakfast/lunch/dinner/other) — clicking
+     * the tracking summary opens this list on the frontend.
+     */
+    public static List<Map<String, Object>> nutritionLog(String studentId) throws SQLException {
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT mp.plan_date, fi.name, fi.category, fi.calories, fi.protein_g, fi.price, mpi.quantity " +
+                "FROM meal_plan_items mpi " +
+                "JOIN meal_plans mp ON mp.plan_id = mpi.plan_id " +
+                "JOIN food_items fi ON fi.item_id = mpi.item_id " +
+                "WHERE mp.student_id = ?::uuid " +
+                "ORDER BY mp.plan_date DESC, " +
+                "  CASE fi.category WHEN 'breakfast' THEN 1 WHEN 'lunch' THEN 2 WHEN 'dinner' THEN 3 ELSE 4 END")) {
+            ps.setString(1, studentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Map<String, Object>> list = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("date", rs.getDate("plan_date").toString());
+                    m.put("name", rs.getString("name"));
+                    m.put("category", rs.getString("category"));
+                    m.put("calories", rs.getInt("calories") * rs.getInt("quantity"));
+                    m.put("proteinG", rs.getDouble("protein_g") * rs.getInt("quantity"));
+                    m.put("price", rs.getDouble("price") * rs.getInt("quantity"));
+                    m.put("quantity", rs.getInt("quantity"));
+                    list.add(m);
+                }
+                return list;
+            }
+        } finally {
+            Database.release(c);
+        }
+    }
 }

@@ -88,18 +88,50 @@ public class StudentController {
     }
 
     /**
-     * GET /api/students/foods/recommendations
-     * Matches the UML diagram's AIEngine.recommendMeals(Student): List —
-     * up to 7 low-cost, high-nutrition food items the student can currently
-     * afford, sorted ascending by price (cheapest first).
+     * POST /api/students/foods/recommendations
+     * body: { selectedItemIds: [...] }   (omit or [] for the initial call)
+     *
+     * The primary AI agent endpoint: shows the top 10 low-cost,
+     * high-nutrition items (AIEngine.recommendMeals), sorted ascending by
+     * price — the "add to cart" list. Every time the student clicks an item
+     * to add it, the frontend calls this again with that item's id included
+     * in selectedItemIds; the server excludes it and every other cart item
+     * from the new list, and re-ranks against the budget actually remaining
+     * after the cart's cost — never a client-supplied number.
      */
     public void recommendMeals(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
         Student student = loadStudent(ctx.userId);
         if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
-        List<FoodItem> recommendations = aiEngine.recommendMeals(student);
+
+        Map<String, Object> body = HttpUtil.readJsonBody(exchange);
+        List<String> selectedIds = JsonUtil.getList(body, "selectedItemIds").stream().map(String::valueOf).toList();
+
+        double budget = student.calculateBudget();
+        double cartCost = 0;
+        double cartCalories = 0;
+        double cartProtein = 0;
+        List<Map<String, Object>> cartItems = new ArrayList<>();
+        for (String id : selectedIds) {
+            FoodItem item = FoodItemDao.findById(id);
+            if (item != null) {
+                cartCost += item.getPrice();
+                cartCalories += item.getCalories();
+                cartProtein += item.getProteinG();
+                cartItems.add(item.toJson());
+            }
+        }
+        double remainingBudget = Math.round((budget - cartCost) * 100.0) / 100.0;
+
+        List<FoodItem> recommendations = aiEngine.recommendMeals(student, new LinkedHashSet<>(selectedIds), remainingBudget);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("recommendations", recommendations.stream().map(FoodItem::toJson).collect(Collectors.toList()));
         result.put("count", recommendations.size());
+        result.put("remainingBudget", remainingBudget);
+        result.put("cart", cartItems);
+        result.put("cartTotalCost", Math.round(cartCost * 100.0) / 100.0);
+        result.put("cartTotalCalories", cartCalories);
+        result.put("cartTotalProtein", cartProtein);
         HttpUtil.sendJson(exchange, 200, result);
     }
 
@@ -172,7 +204,7 @@ public class StudentController {
 
         PersonalizedMealPlan plan = PersonalizedMealPlan.save(ctx.userId, items, aiEngine);
         notificationService.notify(ctx.userId,
-                String.format("Your meal plan is ready: %.0f kcal for $%.2f.", plan.calculateNutrition(), plan.calculateCost()));
+                String.format("Your meal plan is ready: %.0f kcal for BDT %.2f.", plan.calculateNutrition(), plan.calculateCost()));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("planId", plan.getPlanId());
@@ -218,6 +250,22 @@ public class StudentController {
     public void listNotifications(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("notifications", notificationService.listForUser(ctx.userId));
+        HttpUtil.sendJson(exchange, 200, result);
+    }
+
+    /** GET /api/students/nutrition/summary — the Overview tab's three tracking stat cards. */
+    public void nutritionSummary(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        HttpUtil.sendJson(exchange, 200, MealPlanDao.nutritionSummary(ctx.userId));
+    }
+
+    /**
+     * GET /api/students/nutrition/log — every food eaten, with date and
+     * category (breakfast/lunch/dinner/other), backing the drill-down that
+     * opens when the student clicks the Overview tracking summary.
+     */
+    public void nutritionLog(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("log", MealPlanDao.nutritionLog(ctx.userId));
         HttpUtil.sendJson(exchange, 200, result);
     }
 }

@@ -32,7 +32,14 @@ public final class UserDao {
         }
     }
 
-    /** Registers a new user and returns the created User (Student or Admin). */
+    /**
+     * Registers a new user and returns the created User (Student or Admin).
+     * Deliberately does NOT set `status` or `is_super_admin` here — every
+     * new signup gets the table defaults (PENDING, not-super-admin), so
+     * nobody can self-approve or self-promote at registration time. See
+     * AdminController's approval endpoints for how an account becomes
+     * usable.
+     */
     public static User create(String name, String email, String plainPassword, String role,
                                Double budgetLimit, String dietaryPreference) throws SQLException {
         String userId = UUID.randomUUID().toString();
@@ -86,7 +93,7 @@ public final class UserDao {
 
     public static List<Map<String, Object>> listUsers(String roleFilter) throws SQLException {
         StringBuilder sql = new StringBuilder(
-                "SELECT user_id, name, email, role, budget_limit, dietary_preference, created_at FROM users");
+                "SELECT user_id, name, email, role, status, is_super_admin, budget_limit, dietary_preference, created_at FROM users");
         boolean hasFilter = roleFilter != null && !roleFilter.isBlank();
         if (hasFilter) sql.append(" WHERE role = ?");
         sql.append(" ORDER BY created_at DESC");
@@ -102,6 +109,8 @@ public final class UserDao {
                     m.put("name", rs.getString("name"));
                     m.put("email", rs.getString("email"));
                     m.put("role", rs.getString("role"));
+                    m.put("status", rs.getString("status"));
+                    m.put("isSuperAdmin", rs.getBoolean("is_super_admin"));
                     m.put("budgetLimit", rs.getObject("budget_limit"));
                     m.put("dietaryPreference", rs.getString("dietary_preference"));
                     m.put("createdAt", rs.getTimestamp("created_at").toString());
@@ -109,6 +118,59 @@ public final class UserDao {
                 }
                 return result;
             }
+        } finally {
+            Database.release(c);
+        }
+    }
+
+    /**
+     * Pending signups an admin is allowed to act on. A regular admin only
+     * sees pending STUDENT accounts; a super admin sees pending STUDENT
+     * *and* ADMIN accounts — this is the query-level enforcement of "an
+     * admin's approval request never goes to another regular admin."
+     */
+    public static List<Map<String, Object>> listPending(boolean includeAdmins) throws SQLException {
+        String sql = "SELECT user_id, name, email, role, budget_limit, dietary_preference, created_at " +
+                "FROM users WHERE status = 'PENDING'" +
+                (includeAdmins ? "" : " AND role = 'STUDENT'") +
+                " ORDER BY created_at ASC";
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            List<Map<String, Object>> result = new ArrayList<>();
+            while (rs.next()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("userId", rs.getString("user_id"));
+                m.put("name", rs.getString("name"));
+                m.put("email", rs.getString("email"));
+                m.put("role", rs.getString("role"));
+                m.put("budgetLimit", rs.getObject("budget_limit"));
+                m.put("dietaryPreference", rs.getString("dietary_preference"));
+                m.put("createdAt", rs.getTimestamp("created_at").toString());
+                result.add(m);
+            }
+            return result;
+        } finally {
+            Database.release(c);
+        }
+    }
+
+    public static int countPendingVisibleTo(boolean superAdmin) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM users WHERE status = 'PENDING'" + (superAdmin ? "" : " AND role = 'STUDENT'");
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return rs.getInt(1);
+        } finally {
+            Database.release(c);
+        }
+    }
+
+    public static void setStatus(String userId, String status) throws SQLException {
+        Connection c = Database.borrow();
+        try (PreparedStatement ps = c.prepareStatement("UPDATE users SET status = ? WHERE user_id = ?::uuid")) {
+            ps.setString(1, status);
+            ps.setString(2, userId);
+            ps.executeUpdate();
         } finally {
             Database.release(c);
         }
@@ -143,11 +205,13 @@ public final class UserDao {
         String name = rs.getString("name");
         String email = rs.getString("email");
         String hash = rs.getString("password_hash");
+        String status = rs.getString("status");
         if ("ADMIN".equals(role)) {
-            return new Admin(userId, name, email, hash);
+            boolean superAdmin = rs.getBoolean("is_super_admin");
+            return new Admin(userId, name, email, hash, status, superAdmin);
         }
         double budgetLimit = rs.getDouble("budget_limit"); // returns 0 if NULL, fine here (only STUDENT rows reach this branch)
         String dietaryPreference = rs.getString("dietary_preference");
-        return new Student(userId, name, email, hash, budgetLimit, dietaryPreference);
+        return new Student(userId, name, email, hash, status, budgetLimit, dietaryPreference);
     }
 }
