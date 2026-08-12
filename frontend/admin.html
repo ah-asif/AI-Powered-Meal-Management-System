@@ -147,6 +147,7 @@
     t.classList.add('active');
     document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
     document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
+    if (t.dataset.tab === 'approvals') loadApprovals();
     if (t.dataset.tab === 'users') loadUsers();
     if (t.dataset.tab === 'catalog') loadCatalog();
     if (t.dataset.tab === 'mealplans') loadMealPlans();
@@ -190,6 +191,61 @@
         </div>`).join('');
     } catch (err) {
       showError('errorBanner', err.message);
+    }
+  }
+
+  async function loadApprovals() {
+    const el = document.getElementById('approvalsList');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const { pending, isSuperAdmin } = await Api.adminApprovals();
+      document.getElementById('approvalsNote').textContent = isSuperAdmin
+        ? 'Approve or reject new Student and Admin accounts before they can sign in.'
+        : 'Approve or reject new Student accounts. Only the super admin can approve Admin accounts.';
+      if (!pending.length) { el.innerHTML = '<div class="empty">No pending signups right now.</div>'; return; }
+      el.innerHTML = pending.map((u) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(u.name)} <span class="badge" style="margin-left:6px;">${u.role}</span></div>
+            <div class="meta">${escapeHtml(u.email)} · requested ${new Date(u.createdAt).toLocaleString()}</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn" data-approve="${u.userId}" style="padding:6px 14px; font-size:12px;">Approve</button>
+            <button class="btn danger" data-reject="${u.userId}" style="padding:6px 14px; font-size:12px;">Reject</button>
+          </div>
+        </div>`).join('');
+      el.querySelectorAll('button[data-approve]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await Api.adminApproveUser(btn.dataset.approve);
+            showToast('Account approved.');
+            loadApprovals();
+            loadOverview();
+          } catch (err) {
+            showError('errorBanner', err.message);
+            btn.disabled = false;
+          }
+        });
+      });
+      el.querySelectorAll('button[data-reject]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Reject this account request? This cannot be undone.')) return;
+          btn.disabled = true;
+          try {
+            await Api.adminRejectUser(btn.dataset.reject);
+            showToast('Account rejected.');
+            loadApprovals();
+            loadOverview();
+          } catch (err) {
+            showError('errorBanner', err.message);
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (err) {
+      showError('errorBanner', err.message);
+      el.innerHTML = '<div class="empty">Couldn\'t load pending signups.</div>';
     }
   }
 
