@@ -73,12 +73,14 @@ const Api = {
   listExpenses: () => apiRequest('/students/expenses'),
   addExpense: (payload) => apiRequest('/students/expenses', { method: 'POST', body: payload }),
   suggestNextFood: (payload) => apiRequest('/students/foods/suggest', { method: 'POST', body: payload }),
-  recommendMeals: () => apiRequest('/students/foods/recommendations'),
+  recommendMeals: (selectedItemIds) => apiRequest('/students/foods/recommendations', { method: 'POST', body: { selectedItemIds: selectedItemIds || [] } }),
   savePlan: (itemIds) => apiRequest('/students/meal-plans', { method: 'POST', body: { itemIds } }),
   listMealPlans: () => apiRequest('/students/meal-plans'),
   getMealPlan: (id) => apiRequest(`/students/meal-plans/${id}`),
   insights: () => apiRequest('/students/insights'),
   notifications: () => apiRequest('/students/notifications'),
+  nutritionSummary: () => apiRequest('/students/nutrition/summary'),
+  nutritionLog: () => apiRequest('/students/nutrition/log'),
 
   adminDashboard: () => apiRequest('/admin/dashboard'),
   adminUsers: (role) => apiRequest(`/admin/users${role ? `?role=${role}` : ''}`),
@@ -88,6 +90,10 @@ const Api = {
   adminCreateFoodItem: (payload) => apiRequest('/admin/food-items', { method: 'POST', body: payload }),
   adminUpdatePrice: (id, price) => apiRequest(`/admin/food-items/${id}/price`, { method: 'PATCH', body: { price } }),
   adminDeleteFoodItem: (id) => apiRequest(`/admin/food-items/${id}`, { method: 'DELETE' }),
+  adminApprovals: () => apiRequest('/admin/approvals'),
+  adminNotifications: () => apiRequest('/admin/notifications'),
+  adminApproveUser: (id) => apiRequest(`/admin/approvals/${id}/approve`, { method: 'POST' }),
+  adminRejectUser: (id) => apiRequest(`/admin/approvals/${id}/reject`, { method: 'POST' }),
 };
 
 function requireAuth(role) {
@@ -127,5 +133,5 @@ function showError(elId, message) {
 
 function money(n) {
   const num = Number(n) || 0;
-  return `$${num.toFixed(2)}`;
+  return `৳${num.toFixed(2)}`;
 }

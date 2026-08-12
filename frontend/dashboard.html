@@ -9,7 +9,7 @@
 <body>
 <div class="app-shell">
   <div class="topbar">
-    <div class="brand"><span class="tag">$</span> MealLedger</div>
+    <div class="brand"><span class="tag">৳</span> MealLedger</div>
     <div class="topbar-right">
       <span class="user-chip" id="userChip">…</span>
       <button class="btn-ghost" id="logoutBtn">Log out</button>
@@ -45,11 +45,31 @@
           <span class="eyebrow">Quick set budget</span>
           <h2 style="margin-bottom:12px;">Start a new period</h2>
           <form id="budgetForm">
-            <label for="budgetAmount">Total budget for this period ($)</label>
-            <input id="budgetAmount" type="number" min="0" step="0.5" placeholder="50.00" required>
+            <label for="budgetAmount">Total budget for this period (৳)</label>
+            <input id="budgetAmount" type="number" min="0" step="1" placeholder="2000" required>
             <button class="btn block" style="margin-top:14px;" type="submit">Save budget</button>
           </form>
         </div>
+      </div>
+
+      <div class="card" id="nutritionCard" style="margin-top:18px; cursor:pointer;">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Tracking</span>
+            <h2>What you've eaten</h2>
+          </div>
+          <span class="badge" id="foodLogToggleBadge">Click to view log</span>
+        </div>
+        <div class="grid grid-3">
+          <div class="price-tag"><div class="label">Total spent on food</div><div class="amount" id="nutSpent">—</div></div>
+          <div class="price-tag"><div class="label">Calories taken</div><div class="amount" id="nutCalories">—</div></div>
+          <div class="price-tag"><div class="label">Protein taken</div><div class="amount" id="nutProtein">—</div></div>
+        </div>
+      </div>
+
+      <div class="card" id="foodLogCard" style="display:none; margin-top:18px;">
+        <div class="section-head"><h2>Food log, by date</h2></div>
+        <div id="foodLogList"><div class="empty">Loading…</div></div>
       </div>
 
       <div class="card" style="margin-top:18px;">
@@ -64,44 +84,33 @@
     <section id="tab-meals" style="display:none;">
       <div class="card">
         <span class="eyebrow">AI food agent</span>
-        <h2>Build today's plan, one food at a time</h2>
-        <p>The AI Engine suggests one healthy, low-cost food that fits what's left of your budget. Accept it to add it to your plan, or skip it for another suggestion — either way, it picks the next one the same way, until you're ready to save.</p>
-        <div class="form-row" style="align-items:center;">
-          <button class="btn" id="startSuggestBtn" type="button">Start suggesting foods</button>
-          <button class="btn-ghost" id="resetSuggestBtn" type="button" style="display:none;">Start over</button>
-        </div>
+        <h2>Add foods to your plan</h2>
+        <p>The AI Engine shows the 10 healthiest, lowest-cost foods you can currently afford, cheapest first. Click any item to add it to your plan — the list refreshes with 10 fresh picks that still fit what's left of your budget.</p>
       </div>
 
-      <div class="card" style="margin-top:18px;">
-        <span class="eyebrow">Top 7 picks</span>
-        <h2>Low cost, high nutrition — cheapest first</h2>
-        <p>The AI Engine's best all-round value picks in the whole catalog right now, ranked by nutrition-per-dollar then sorted ascending by price.</p>
-        <div id="top7List"><div class="empty">Loading…</div></div>
-      </div>
-
-      <div class="card" id="suggestionCard" style="display:none; margin-top:18px;">
-        <span class="eyebrow">Suggested next</span>
-        <div id="suggestionBody"></div>
-        <div class="form-row" style="margin-top:14px;">
-          <button class="btn" id="acceptSuggestionBtn" type="button">Accept &amp; add to plan</button>
-          <button class="btn-ghost" id="skipSuggestionBtn" type="button">Skip, suggest another</button>
+      <div class="grid grid-2" style="margin-top:18px; align-items:start;">
+        <div class="card">
+          <div class="section-head">
+            <h2>Top 10 picks</h2>
+            <span class="badge" id="pickBudgetBadge"></span>
+          </div>
+          <div id="pickList"><div class="empty">Loading…</div></div>
         </div>
-      </div>
 
-      <div class="card" id="noSuggestionCard" style="display:none; margin-top:18px;">
-        <div class="empty" id="noSuggestionMessage">No more items fit your remaining budget.</div>
-      </div>
-
-      <div class="card" id="planBuilderCard" style="display:none; margin-top:18px;">
-        <div class="section-head">
-          <h2>Your plan so far</h2>
-          <span class="badge green" id="planBadge"></span>
+        <div class="card">
+          <div class="section-head">
+            <h2>Your plan</h2>
+            <span class="badge green" id="cartNutritionBadge"></span>
+          </div>
+          <div id="cartList"><div class="empty">Click an item on the left to add it here.</div></div>
+          <div class="ticket-total" style="margin-top:14px;">
+            <span class="k">Total cost</span><span class="v" id="cartTotal">৳0.00</span>
+          </div>
+          <div class="form-row" style="margin-top:14px;">
+            <button class="btn block" id="savePlanBtn" type="button" disabled>Save this plan</button>
+            <button class="btn-ghost" id="clearCartBtn" type="button">Clear</button>
+          </div>
         </div>
-        <div id="planItems"></div>
-        <div class="ticket-total" style="margin-top:14px;">
-          <span class="k">Total cost</span><span class="v" id="planCost">—</span>
-        </div>
-        <button class="btn block" id="savePlanBtn" type="button" style="margin-top:14px;">Save this plan</button>
       </div>
 
       <div class="card" style="margin-top:18px;">
@@ -117,7 +126,7 @@
           <span class="eyebrow">Log a purchase</span>
           <h2>Add expense</h2>
           <form id="expenseForm">
-            <label for="expAmount">Amount ($)</label>
+            <label for="expAmount">Amount (৳)</label>
             <input id="expAmount" type="number" min="0" step="0.01" required>
             <label for="expCategory">Category</label>
             <select id="expCategory">
@@ -170,7 +179,7 @@
     document.querySelectorAll('.page section').forEach((s) => { s.style.display = 'none'; });
     document.getElementById(`tab-${t.dataset.tab}`).style.display = 'block';
     if (t.dataset.tab === 'insights') loadInsights();
-    if (t.dataset.tab === 'meals') { loadPlanHistory(); loadTop7(); }
+    if (t.dataset.tab === 'meals') { loadPlanHistory(); loadPicks(); }
   }));
 
   function gaugeClass(pct) {
@@ -206,6 +215,70 @@
             <span class="meta">${new Date(n.createdAt).toLocaleString()}</span>
           </div>`).join('');
       }
+
+      await loadNutritionSummary();
+    } catch (err) {
+      showError('errorBanner', err.message);
+    }
+  }
+
+  // ---- nutrition tracking (Overview) ----
+  async function loadNutritionSummary() {
+    const data = await Api.nutritionSummary();
+    document.getElementById('nutSpent').textContent = money(data.totalSpent);
+    document.getElementById('nutCalories').textContent = `${Math.round(data.totalCalories)} kcal`;
+    document.getElementById('nutProtein').textContent = `${Math.round(data.totalProtein)} g`;
+  }
+
+  function mealCategoryLabel(cat) {
+    const map = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+    return map[cat] || 'Others';
+  }
+
+  document.getElementById('nutritionCard').addEventListener('click', async () => {
+    const card = document.getElementById('foodLogCard');
+    const willShow = card.style.display === 'none';
+    card.style.display = willShow ? 'block' : 'none';
+    document.getElementById('foodLogToggleBadge').textContent = willShow ? 'Click to hide' : 'Click to view log';
+    if (willShow) await loadFoodLog();
+  });
+
+  async function loadFoodLog() {
+    const el = document.getElementById('foodLogList');
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const { log } = await Api.nutritionLog();
+      if (!log.length) { el.innerHTML = '<div class="empty">No food logged yet — save a meal plan to start tracking.</div>'; return; }
+
+      const byDate = {};
+      log.forEach((row) => {
+        byDate[row.date] = byDate[row.date] || {};
+        const label = mealCategoryLabel(row.category);
+        (byDate[row.date][label] = byDate[row.date][label] || []).push(row);
+      });
+      const dates = Object.keys(byDate).sort((a, b) => new Date(b) - new Date(a));
+      const catOrder = ['Breakfast', 'Lunch', 'Dinner', 'Others'];
+
+      el.innerHTML = dates.map((d) => {
+        const cats = byDate[d];
+        const catsHtml = catOrder.filter((c) => cats[c]).map((c) => `
+          <div style="margin-top:12px;">
+            <span class="badge" style="margin-bottom:6px;">${c}</span>
+            ${cats[c].map((it) => `
+              <div class="meal-item">
+                <div>
+                  <div class="name">${escapeHtml(it.name)}</div>
+                  <div class="meta">${Math.round(it.calories)} kcal · ${Math.round(it.proteinG)}g protein</div>
+                </div>
+                <span class="price">${money(it.price)}</span>
+              </div>`).join('')}
+          </div>`).join('');
+        const dateLabel = new Date(d).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+        return `<div style="margin-top:18px;">
+          <h2 style="font-size:15px; margin-bottom:2px;">${dateLabel}</h2>
+          ${catsHtml}
+        </div>`;
+      }).join('');
     } catch (err) {
       showError('errorBanner', err.message);
     }
@@ -224,111 +297,74 @@
     }
   });
 
-  // ---- meal plan (AI agent): suggest one food at a time ----
-  let planSelected = [];   // FoodItem objects the student accepted
-  let planExcluded = [];   // itemIds skipped so they aren't suggested again
+  // ---- meal plan (AI agent): click-to-add-to-cart top-10 list ----
+  let cartSelectedIds = [];
 
-  function resetPlanBuilder() {
-    planSelected = [];
-    planExcluded = [];
-    document.getElementById('suggestionCard').style.display = 'none';
-    document.getElementById('noSuggestionCard').style.display = 'none';
-    document.getElementById('planBuilderCard').style.display = 'none';
-    document.getElementById('resetSuggestBtn').style.display = 'none';
-    document.getElementById('startSuggestBtn').style.display = 'inline-flex';
-  }
-
-  async function requestSuggestion() {
+  async function loadPicks() {
     showError('errorBanner', null);
-    const selectedIds = planSelected.map((it) => it.itemId);
-    const data = await Api.suggestNextFood({ selectedItemIds: selectedIds, excludedItemIds: planExcluded });
-    document.getElementById('resetSuggestBtn').style.display = 'inline-flex';
-    document.getElementById('startSuggestBtn').style.display = 'none';
+    const el = document.getElementById('pickList');
+    try {
+      const data = await Api.recommendMeals(cartSelectedIds);
+      renderCart(data);
 
-    if (!data.suggestion) {
-      document.getElementById('suggestionCard').style.display = 'none';
-      document.getElementById('noSuggestionCard').style.display = 'block';
-      document.getElementById('noSuggestionMessage').textContent =
-        data.message || 'No more items fit your remaining budget.';
-      return;
+      if (!data.recommendations.length) {
+        el.innerHTML = '<div class="empty">No more items fit your remaining budget.</div>';
+        return;
+      }
+      el.innerHTML = data.recommendations.map((it) => `
+        <button type="button" class="meal-item pick-row" data-id="${it.itemId}">
+          <div>
+            <div class="name">${escapeHtml(it.name)}</div>
+            <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
+          </div>
+          <span class="price">+ ${money(it.price)}</span>
+        </button>`).join('');
+      el.querySelectorAll('.pick-row').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          cartSelectedIds.push(btn.dataset.id);
+          await loadPicks();
+        });
+      });
+    } catch (err) {
+      showError('errorBanner', err.message);
     }
-
-    document.getElementById('noSuggestionCard').style.display = 'none';
-    document.getElementById('suggestionCard').style.display = 'block';
-    const it = data.suggestion;
-    document.getElementById('suggestionBody').innerHTML = `
-      <div class="meal-item">
-        <div>
-          <div class="name">${escapeHtml(it.name)}</div>
-          <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
-        </div>
-        <span class="price">${money(it.price)}</span>
-      </div>
-      <div class="meta" style="margin-top:8px;">Remaining budget after accepting: ${money(data.remainingBudget - it.price)}</div>`;
-    document.getElementById('suggestionBody').dataset.currentItem = JSON.stringify(it);
   }
 
-  document.getElementById('startSuggestBtn').addEventListener('click', async () => {
-    try {
-      await requestSuggestion();
-    } catch (err) {
-      showError('errorBanner', err.message);
+  function renderCart(data) {
+    document.getElementById('pickBudgetBadge').textContent = `Budget left: ${money(data.remainingBudget)}`;
+    document.getElementById('cartNutritionBadge').textContent = `${Math.round(data.cartTotalCalories)} kcal · ${Math.round(data.cartTotalProtein)}g protein`;
+    document.getElementById('cartTotal').textContent = money(data.cartTotalCost);
+
+    const cartEl = document.getElementById('cartList');
+    if (!data.cart.length) {
+      cartEl.innerHTML = '<div class="empty">Click an item on the left to add it here.</div>';
+    } else {
+      cartEl.innerHTML = data.cart.map((it) => `
+        <div class="meal-item">
+          <div>
+            <div class="name">${escapeHtml(it.name)}</div>
+            <div class="meta">${it.category} · ${it.calories} kcal</div>
+          </div>
+          <span class="price">${money(it.price)}</span>
+        </div>`).join('');
     }
-  });
-
-  document.getElementById('resetSuggestBtn').addEventListener('click', () => {
-    resetPlanBuilder();
-    renderPlanBuilder();
-  });
-
-  document.getElementById('acceptSuggestionBtn').addEventListener('click', async () => {
-    try {
-      const it = JSON.parse(document.getElementById('suggestionBody').dataset.currentItem);
-      planSelected.push(it);
-      renderPlanBuilder();
-      await requestSuggestion();
-    } catch (err) {
-      showError('errorBanner', err.message);
-    }
-  });
-
-  document.getElementById('skipSuggestionBtn').addEventListener('click', async () => {
-    try {
-      const it = JSON.parse(document.getElementById('suggestionBody').dataset.currentItem);
-      planExcluded.push(it.itemId);
-      await requestSuggestion();
-    } catch (err) {
-      showError('errorBanner', err.message);
-    }
-  });
-
-  function renderPlanBuilder() {
-    const card = document.getElementById('planBuilderCard');
-    if (planSelected.length === 0) { card.style.display = 'none'; return; }
-    card.style.display = 'block';
-    const totalCalories = planSelected.reduce((s, it) => s + it.calories, 0);
-    const totalCost = planSelected.reduce((s, it) => s + it.price, 0);
-    document.getElementById('planBadge').textContent = `${totalCalories} kcal`;
-    document.getElementById('planCost').textContent = money(totalCost);
-    document.getElementById('planItems').innerHTML = planSelected.map((it) => `
-      <div class="meal-item">
-        <div>
-          <div class="name">${escapeHtml(it.name)}</div>
-          <div class="meta">${it.category} · ${it.calories} kcal</div>
-        </div>
-        <span class="price">${money(it.price)}</span>
-      </div>`).join('');
+    document.getElementById('savePlanBtn').disabled = data.cart.length === 0;
   }
+
+  document.getElementById('clearCartBtn').addEventListener('click', async () => {
+    cartSelectedIds = [];
+    await loadPicks();
+  });
 
   document.getElementById('savePlanBtn').addEventListener('click', async () => {
     showError('errorBanner', null);
     const btn = document.getElementById('savePlanBtn');
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving…';
     try {
-      const itemIds = planSelected.map((it) => it.itemId);
-      await Api.savePlan(itemIds);
+      await Api.savePlan(cartSelectedIds);
       showToast('Meal plan saved.');
-      resetPlanBuilder();
+      cartSelectedIds = [];
+      await loadPicks();
       loadOverview();
       loadPlanHistory();
     } catch (err) {
@@ -350,24 +386,6 @@
             <div class="meta">${Number(p.totalCalories)} kcal</div>
           </div>
           <span class="price">${money(p.totalCost)}</span>
-        </div>`).join('');
-    } catch (err) {
-      showError('errorBanner', err.message);
-    }
-  }
-
-  async function loadTop7() {
-    try {
-      const { recommendations } = await Api.recommendMeals();
-      const el = document.getElementById('top7List');
-      if (!recommendations.length) { el.innerHTML = '<div class="empty">No items match your dietary preference right now.</div>'; return; }
-      el.innerHTML = recommendations.map((it) => `
-        <div class="meal-item">
-          <div>
-            <div class="name">${escapeHtml(it.name)}</div>
-            <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
-          </div>
-          <span class="price">${money(it.price)}</span>
         </div>`).join('');
     } catch (err) {
       showError('errorBanner', err.message);
@@ -428,7 +446,7 @@
           <span class="eyebrow" style="color:#7a5b06;">Best value pick</span>
           <div class="ticket-row"><span class="k">Item</span><span class="v">${escapeHtml(data.bestValueOption.name)}</span></div>
           <div class="ticket-row"><span class="k">Price</span><span class="v">${money(data.bestValueOption.price)}</span></div>
-          <div class="ticket-row"><span class="k">Calories per $1</span><span class="v">${data.bestValueOption.caloriesPerCurrencyUnit}</span></div>
+          <div class="ticket-row"><span class="k">Calories per ৳1</span><span class="v">${data.bestValueOption.caloriesPerCurrencyUnit}</span></div>
         </div>`;
     } catch (err) {
       showError('errorBanner', err.message);

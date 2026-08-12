@@ -10,7 +10,7 @@
 <div class="app-shell">
   <div class="auth-shell">
     <div class="auth-hero">
-      <div class="brand"><span class="tag">$</span> MealLedger</div>
+      <div class="brand"><span class="tag">৳</span> MealLedger</div>
       <h1>The most food for the least money.</h1>
       <p class="pitch">Set a budget. The AI Engine reads your remaining balance and dietary preference, then suggests one healthy, low-cost food at a time — accept it or skip it, and it locks onto the next best pick the same way.</p>
 
@@ -19,7 +19,7 @@
           <span class="eyebrow">AI Engine · live pick</span>
           <div class="si-name">Rice &amp; Lentil Bowl</div>
           <div class="si-meta">lunch · 520 kcal · 18g protein</div>
-          <div class="si-price">$1.80</div>
+          <div class="si-price">৳45.00</div>
         </div>
       </div>
     </div>
@@ -42,7 +42,8 @@
             <input id="loginPassword" type="password" placeholder="••••••••" required>
             <button class="btn block" style="margin-top:18px;" type="submit" id="loginBtn">Sign in</button>
             <p style="font-size:12px; margin-top:14px; text-align:center;">
-              Demo: <strong>student@meal.app</strong> / Student@123 &nbsp;·&nbsp; <strong>admin@meal.app</strong> / Admin@123
+              Demo: <strong>student@meal.app</strong> / Student@123 &nbsp;·&nbsp; <strong>admin@meal.app</strong> / Admin@123<br>
+              Super admin: <strong>admin.alex@gmail.com</strong> / 12324404
             </p>
           </form>
 
@@ -63,8 +64,8 @@
                 </select>
               </div>
               <div id="budgetField">
-                <label for="regBudget">Weekly budget ($)</label>
-                <input id="regBudget" type="number" min="0" step="0.5" placeholder="50">
+                <label for="regBudget">Weekly budget (৳)</label>
+                <input id="regBudget" type="number" min="0" step="1" placeholder="2000">
               </div>
             </div>
             <div id="dietField">
@@ -140,7 +141,7 @@
     e.preventDefault();
     showError('errorBanner', null);
     const btn = document.getElementById('registerBtn');
-    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Creating account…';
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submitting…';
     try {
       const role = document.getElementById('regRole').value;
       const payload = {
@@ -153,9 +154,14 @@
         payload.budgetLimit = Number(document.getElementById('regBudget').value) || 0;
         payload.dietaryPreference = document.getElementById('regDiet').value;
       }
-      const { token, user } = await Api.register(payload);
-      Auth.setToken(token); Auth.setUser(user);
-      goToRoleHome(user);
+      // Registration no longer logs the user straight in — every new
+      // account starts PENDING and needs an admin to approve it first.
+      await Api.register(payload);
+      registerForm.reset();
+      registerForm.style.display = 'none';
+      tabRegister.classList.remove('active'); tabLogin.classList.add('active');
+      loginForm.style.display = 'block';
+      showToast('Account created — waiting on admin approval before you can sign in.');
     } catch (err) {
       showError('errorBanner', err.message);
     } finally {

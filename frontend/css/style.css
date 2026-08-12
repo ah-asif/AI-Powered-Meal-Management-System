@@ -309,6 +309,22 @@ input:focus, select:focus, textarea:focus{
 .meal-item .meta{ font-size:11.5px; color: var(--text-muted); font-family:var(--font-mono); margin-top:2px; }
 .meal-item .price{ font-family: var(--font-mono); font-weight:700; color: var(--ink-text); font-size: 14.5px; }
 
+/* clickable "add to cart" pick rows in the AI Meal Plan tab — same look as
+   .meal-item, but an actual <button> so it's keyboard/screen-reader
+   accessible, with a visible affordance that it's tappable */
+.pick-row{
+  width:100%; text-align:left; background:none; border:none; padding:12px 2px;
+  border-bottom:1px solid var(--paper-dim); border-radius:8px;
+  display:flex; justify-content:space-between; align-items:center;
+  cursor:pointer; font-family:inherit; transition: background .15s var(--ease), transform .1s var(--ease);
+}
+.pick-row:last-child{ border-bottom:none; }
+.pick-row:hover{ background: var(--violet-dim); }
+.pick-row:active{ transform: scale(0.99); }
+.pick-row .name{ font-weight:700; color: var(--ink-text); font-size: 14.5px; }
+.pick-row .meta{ font-size:11.5px; color: var(--text-muted); font-family:var(--font-mono); margin-top:2px; }
+.pick-row .price{ font-family: var(--font-mono); font-weight:700; color: var(--lime-text); font-size: 14.5px; }
+
 .empty{
   text-align:center; padding: 36px 10px; color: var(--text-muted);
   font-family: var(--font-mono); font-size:13px;
@@ -411,12 +427,10 @@ input:focus, select:focus, textarea:focus{
 }
 @keyframes spin{ to{ transform: rotate(360deg); } }
 
-/* AI suggestion card, live: a "radar ping" pulse — the engine has
-   locked onto a pick. (Uses a glow pulse rather than the hero mock's
-   rotating ring, since this card has multiple direct children that a
-   masked ring border would visually fragment.) */
-#suggestionCard{
-  animation: signal-pulse 2.4s var(--ease) infinite;
+/* Nutrition tracking card (Overview tab) is clickable to reveal the food
+   log — a brief glow pulse on hover signals that it's interactive. */
+#nutritionCard:hover{
+  animation: signal-pulse 1.6s var(--ease) infinite;
 }
 @keyframes signal-pulse{
   0%, 100%{ box-shadow: var(--shadow-card), 0 0 0 0 rgba(124,108,255,0.38); }
