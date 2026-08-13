@@ -105,7 +105,7 @@
           </div>
           <div class="form-row">
             <div>
-              <label for="fPrice">Price ($)</label>
+              <label for="fPrice">Price (৳)</label>
               <input id="fPrice" type="number" min="0" step="0.01" required>
             </div>
             <div>
@@ -192,6 +192,21 @@
     const div = document.createElement('div');
     div.textContent = str == null ? '' : String(str);
     return div.innerHTML;
+  }
+
+  /**
+   * Bug fix: if items get deleted/approved/rejected (or a filter shrinks
+   * the result set) while the admin is sitting on a later page, the old
+   * page number can point past the end of the new, smaller list. Slicing
+   * with an out-of-range start silently returns an empty array even
+   * though matching items still exist — the panel would render blank
+   * instead of showing the last valid page. Clamp before every render.
+   */
+  function clampPage(stateSlice, totalItems) {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    if (stateSlice.page > totalPages) stateSlice.page = totalPages;
+    if (stateSlice.page < 1) stateSlice.page = 1;
+    return stateSlice.page;
   }
 
   function renderPagination(containerId, totalItems, currentPage, onPageChange) {
@@ -284,6 +299,7 @@
       }
 
       const totalItems = filtered.length;
+      clampPage(state.approvals, totalItems);
       const start = (state.approvals.page - 1) * PAGE_SIZE;
       const paginated = filtered.slice(start, start + PAGE_SIZE);
 
@@ -371,6 +387,7 @@
       }
 
       const totalItems = filtered.length;
+      clampPage(state.users, totalItems);
       const start = (state.users.page - 1) * PAGE_SIZE;
       const paginated = filtered.slice(start, start + PAGE_SIZE);
 
@@ -444,6 +461,7 @@
       }
 
       const totalItems = filtered.length;
+      clampPage(state.catalog, totalItems);
       const start = (state.catalog.page - 1) * PAGE_SIZE;
       const paginated = filtered.slice(start, start + PAGE_SIZE);
 
@@ -536,6 +554,7 @@
       }
 
       const totalItems = filtered.length;
+      clampPage(state.mealPlans, totalItems);
       const start = (state.mealPlans.page - 1) * PAGE_SIZE;
       const paginated = filtered.slice(start, start + PAGE_SIZE);
 
