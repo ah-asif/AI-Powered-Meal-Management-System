@@ -1,0 +1,108 @@
+<div id="uml"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"anthropic-sans", sans-serif',
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"anthropic-sans", sans-serif',
+    lineColor: dark ? '#9c9a92' : '#73726c',
+    textColor: dark ? '#c2c0b6' : '#3d3d3a',
+  },
+});
+const src = `classDiagram
+  class User {
+    <<abstract>>
+    -String userId
+    -String name
+    -String email
+    -String status
+    +login(String) bool
+    +logout() void
+    +generateDashboard()* Map
+    +isPending() bool
+    +isApproved() bool
+  }
+  class Student {
+    -double budgetLimit
+    -String dietaryPreference
+    +generateDashboard() Map
+    +calculateBudget() double
+    +trackExpense(Expense) Expense
+    +sendNotification(String) void
+  }
+  class Admin {
+    -boolean isSuperAdmin
+    +generateDashboard() Map
+    +manageUsers(String) List
+    +manageMealPlans(int) List
+    +approveUser(String) void
+    +rejectUser(String) void
+  }
+  class INotifiable {
+    <<interface>>
+    +sendNotification(String) void
+  }
+  class IBudgetManageable {
+    <<interface>>
+    +calculateBudget() double
+    +trackExpense(Expense) Expense
+  }
+  class Budget {
+    -double totalBudget
+    -double spentAmount
+    -LocalDate periodStart
+    +calculateRemaining() double
+    +trackExpense(double, String) Expense
+  }
+  class Expense {
+    -String expenseId
+    -double amount
+    -String category
+    -LocalDate expenseDate
+  }
+  class MealPlan {
+    <<abstract>>
+    -String planId
+    -LocalDate date
+    +calculateNutrition()* double
+    +calculateCost()* double
+  }
+  class PersonalizedMealPlan {
+    -AIEngine aiEngine
+  }
+  class FoodItem {
+    -String itemId
+    -String name
+    -double priceBDT
+    -int calories
+    -double proteinG
+    +getPrice() double
+    +setPrice(double) void
+  }
+  class AIEngine {
+    +recommendMeals(Student) List
+    +suggestNext(Student, Set, double) FoodItem
+    +analyzePreferences(Student) void
+  }
+  User <|-- Student
+  User <|-- Admin
+  INotifiable <|.. Student
+  IBudgetManageable <|.. Student
+  Student "1" *-- "1" Budget : has
+  Budget "1" *-- "*" Expense : logs
+  Admin "1" --> "*" User : approves
+  Admin "1" --> "*" MealPlan : views
+  MealPlan <|-- PersonalizedMealPlan
+  PersonalizedMealPlan "1" *-- "1" AIEngine : uses
+  MealPlan "*" o-- "*" FoodItem : contains
+  note for Budget "Resets to a fresh row\\nevery calendar month (BDT)"
+  note for User "status: PENDING/APPROVED/REJECTED\\nonly isSuperAdmin approves admins"`;
+const { svg } = await mermaid.render('uml-svg', src);
+document.getElementById('uml').innerHTML = svg;
+</script>
