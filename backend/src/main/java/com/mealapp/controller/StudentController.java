@@ -189,31 +189,52 @@ public class StudentController {
      * Finalizes and saves the plan the student built via the suggest-next loop.
      */
     public void savePlan(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
-        Map<String, Object> body = HttpUtil.readJsonBody(exchange);
-        List<String> itemIds = JsonUtil.getList(body, "itemIds").stream().map(String::valueOf).toList();
-        if (itemIds.isEmpty()) {
-            throw new IllegalArgumentException("itemIds must contain at least one food item");
-        }
-
-        List<FoodItem> items = new ArrayList<>();
-        for (String id : itemIds) {
-            FoodItem item = FoodItemDao.findById(id);
-            if (item == null) throw new IllegalArgumentException("Unknown food item: " + id);
-            items.add(item);
-        }
-
-        PersonalizedMealPlan plan = PersonalizedMealPlan.save(ctx.userId, items, aiEngine);
-        notificationService.notify(ctx.userId,
-                String.format("Your meal plan is ready: %.0f kcal for BDT %.2f.", plan.calculateNutrition(), plan.calculateCost()));
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("planId", plan.getPlanId());
-        result.put("planDate", plan.getDate() == null ? null : plan.getDate().toString());
-        result.put("totalCalories", plan.calculateNutrition());
-        result.put("totalCost", plan.calculateCost());
-        result.put("items", items.stream().map(FoodItem::toJson).collect(Collectors.toList()));
-        HttpUtil.sendJson(exchange, 201, result);
+    Map<String, Object> body = HttpUtil.readJsonBody(exchange);
+    List<String> itemIds = JsonUtil.getList(body, "itemIds").stream().map(String::valueOf).toList();
+    if (itemIds.isEmpty()) {
+        throw new IllegalArgumentException("itemIds must contain at least one food item");
     }
+
+    List<FoodItem> items = new ArrayList<>();
+    double totalCost = 0;
+    for (String id : itemIds) {
+        FoodItem item = FoodItemDao.findById(id);
+        if (item == null) throw new IllegalArgumentException("Unknown food item: " + id);
+        items.add(item);
+        totalCost += item.getPrice();
+    }
+    totalCost = Math.round(totalCost * 100.0) / 100.0;
+
+    // 1. Save the meal plan
+    PersonalizedMealPlan plan = PersonalizedMealPlan.save(ctx.userId, items, aiEngine);
+
+    // 2. Deduct the cost from the budget (THIS WAS MISSING)
+    if (totalCost > 0) {
+        budgetService.addExpense(
+                ctx.userId,
+                totalCost,
+                "food",
+                "Meal plan " + plan.getPlanId()
+        );
+    }
+
+    notificationService.notify(ctx.userId,
+            String.format("Your meal plan is ready: %.0f kcal for BDT %.2f.",
+                    plan.calculateNutrition(), plan.calculateCost()));
+
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("planId", plan.getPlanId());
+    result.put("planDate", plan.getDate() == null ? null : plan.getDate().toString());
+    result.put("totalCalories", plan.calculateNutrition());
+    result.put("totalCost", plan.calculateCost());
+    result.put("items", items.stream().map(FoodItem::toJson).collect(Collectors.toList()));
+
+    // Return the updated remaining budget
+    Budget budget = budgetService.getActiveBudget(ctx.userId);
+    result.put("remainingBudget", budget == null ? null : budget.calculateRemaining());
+
+    HttpUtil.sendJson(exchange, 201, result);
+}
 
     public void listMealPlans(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
         Map<String, Object> result = new LinkedHashMap<>();

@@ -17,6 +17,9 @@ public final class BudgetDao {
      * Creates a budget for (student, period_start), upserting if one already
      * exists for that exact day — e.g. the starter budget auto-created at
      * registration — instead of colliding with the unique constraint.
+     *
+     * On conflict we update total_budget & period_end but keep the existing
+     * spent_amount (so previous expenses are not lost).
      */
     public static Budget create(String studentId, double totalBudget, LocalDate periodStart, LocalDate periodEnd) throws SQLException {
         LocalDate start = periodStart == null ? LocalDate.now() : periodStart;
@@ -26,7 +29,8 @@ public final class BudgetDao {
                 "INSERT INTO budgets (budget_id, student_id, total_budget, period_start, period_end) " +
                 "VALUES (?::uuid, ?::uuid, ?, ?, ?) " +
                 "ON CONFLICT (student_id, period_start) " +
-                "DO UPDATE SET total_budget = EXCLUDED.total_budget, period_end = EXCLUDED.period_end " +
+                "DO UPDATE SET total_budget = EXCLUDED.total_budget, " +
+                "              period_end   = EXCLUDED.period_end " +
                 "RETURNING *")) {
             ps.setString(1, budgetId);
             ps.setString(2, studentId);
@@ -42,18 +46,28 @@ public final class BudgetDao {
         }
     }
 
+    /**
+     * Returns the currently active budget for the student.
+     * A budget is considered active when:
+     *   period_start <= today  AND  (period_end is null OR period_end >= today)
+     */
     public static Budget findActiveForStudent(String studentId) throws SQLException {
-        Connection c = Database.borrow();
-        try (PreparedStatement ps = c.prepareStatement(
-                "SELECT * FROM budgets WHERE student_id = ?::uuid ORDER BY period_start DESC LIMIT 1")) {
-            ps.setString(1, studentId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? fromRow(rs) : null;
-            }
-        } finally {
-            Database.release(c);
+    Connection c = Database.borrow();
+    try (PreparedStatement ps = c.prepareStatement(
+            "SELECT * FROM budgets " +
+            "WHERE student_id = ?::uuid " +
+            "  AND period_start <= CURRENT_DATE " +
+            "  AND (period_end IS NULL OR period_end >= CURRENT_DATE) " +
+            "ORDER BY period_start DESC " +
+            "LIMIT 1")) {
+        ps.setString(1, studentId);
+        try (ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? fromRow(rs) : null;
         }
+    } finally {
+        Database.release(c);
     }
+}
 
     public static void addToSpent(String budgetId, double amount) throws SQLException {
         Connection c = Database.borrow();
