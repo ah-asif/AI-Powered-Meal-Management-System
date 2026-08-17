@@ -100,40 +100,49 @@ public class StudentController {
      * after the cart's cost — never a client-supplied number.
      */
     public void recommendMeals(HttpExchange exchange, Map<String, String> params, Router.RequestContext ctx) throws Exception {
-        Student student = loadStudent(ctx.userId);
-        if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
+    Student student = loadStudent(ctx.userId);
+    if (student == null) { HttpUtil.sendError(exchange, 404, "Student not found"); return; }
 
-        Map<String, Object> body = HttpUtil.readJsonBody(exchange);
-        List<String> selectedIds = JsonUtil.getList(body, "selectedItemIds").stream().map(String::valueOf).toList();
+    Map<String, Object> body = HttpUtil.readJsonBody(exchange);
+    List<String> selectedIds = JsonUtil.getList(body, "selectedItemIds").stream().map(String::valueOf).toList();
+    
+    // NEW: read optional search query
+    String searchQuery = JsonUtil.getString(body, "q", null);   // or "query" / "search"
 
-        double budget = student.calculateBudget();
-        double cartCost = 0;
-        double cartCalories = 0;
-        double cartProtein = 0;
-        List<Map<String, Object>> cartItems = new ArrayList<>();
-        for (String id : selectedIds) {
-            FoodItem item = FoodItemDao.findById(id);
-            if (item != null) {
-                cartCost += item.getPrice();
-                cartCalories += item.getCalories();
-                cartProtein += item.getProteinG();
-                cartItems.add(item.toJson());
-            }
+    double budget = student.calculateBudget();
+    double cartCost = 0;
+    double cartCalories = 0;
+    double cartProtein = 0;
+    List<Map<String, Object>> cartItems = new ArrayList<>();
+    for (String id : selectedIds) {
+        FoodItem item = FoodItemDao.findById(id);
+        if (item != null) {
+            cartCost += item.getPrice();
+            cartCalories += item.getCalories();
+            cartProtein += item.getProteinG();
+            cartItems.add(item.toJson());
         }
-        double remainingBudget = Math.round((budget - cartCost) * 100.0) / 100.0;
-
-        List<FoodItem> recommendations = aiEngine.recommendMeals(student, new LinkedHashSet<>(selectedIds), remainingBudget);
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("recommendations", recommendations.stream().map(FoodItem::toJson).collect(Collectors.toList()));
-        result.put("count", recommendations.size());
-        result.put("remainingBudget", remainingBudget);
-        result.put("cart", cartItems);
-        result.put("cartTotalCost", Math.round(cartCost * 100.0) / 100.0);
-        result.put("cartTotalCalories", cartCalories);
-        result.put("cartTotalProtein", cartProtein);
-        HttpUtil.sendJson(exchange, 200, result);
     }
+    double remainingBudget = Math.round((budget - cartCost) * 100.0) / 100.0;
+
+    // NEW: use searchMeals when query is present, otherwise normal recommendMeals
+    List<FoodItem> recommendations;
+    if (searchQuery != null && !searchQuery.isBlank()) {
+        recommendations = aiEngine.searchMeals(student, searchQuery, new LinkedHashSet<>(selectedIds), remainingBudget);
+    } else {
+        recommendations = aiEngine.recommendMeals(student, new LinkedHashSet<>(selectedIds), remainingBudget);
+    }
+
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("recommendations", recommendations.stream().map(FoodItem::toJson).collect(Collectors.toList()));
+    result.put("count", recommendations.size());
+    result.put("remainingBudget", remainingBudget);
+    result.put("cart", cartItems);
+    result.put("cartTotalCost", Math.round(cartCost * 100.0) / 100.0);
+    result.put("cartTotalCalories", cartCalories);
+    result.put("cartTotalProtein", cartProtein);
+    HttpUtil.sendJson(exchange, 200, result);
+}
 
     /**
      * POST /api/students/foods/suggest
