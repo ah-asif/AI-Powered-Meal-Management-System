@@ -5,32 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  backend-build:
-    name: Backend (Java) — compile
+  backend-test:
+    name: Backend — Build & Integration Tests
     runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Compile all sources
-        working-directory: backend
-        run: |
-          find src/main/java -name "*.java" > sources.txt
-          mkdir -p out
-          javac -d out -cp "lib/*" @sources.txt
-
-  integration-test:
-    name: Backend (Java) — integration test against real PostgreSQL
-    runs-on: ubuntu-latest
-    needs: backend-build
 
     services:
       postgres:
@@ -56,14 +36,14 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Compile
+      - name: Compile Backend Sources
         working-directory: backend
         run: |
           find src/main/java -name "*.java" > sources.txt
           mkdir -p out
           javac -d out -cp "lib/*" @sources.txt
 
-      - name: Initialize schema + seed data
+      - name: Initialize DB Schema & Seed Data
         working-directory: backend
         env:
           DB_HOST: localhost
@@ -73,7 +53,7 @@ jobs:
           DB_NAME: student_meal_app
         run: java -cp "out:lib/*" com.mealapp.tools.InitDb
 
-      - name: Boot the API and smoke-test key endpoints
+      - name: Run Backend Integration & AI Tests
         working-directory: backend
         env:
           DB_HOST: localhost
@@ -87,51 +67,37 @@ jobs:
           java -cp "out:lib/*" com.mealapp.Main &
           SERVER_PID=$!
           sleep 3
-
-          echo "Health check:"
-          curl -sf http://localhost:4000/api/health
-
-          echo "Login as seeded demo student:"
-          TOKEN=$(curl -sf -X POST http://localhost:4000/api/auth/login \
-            -H "Content-Type: application/json" \
-            -d '{"email":"student@meal.app","password":"Student@123"}' | python3 -c "import json,sys;print(json.load(sys.stdin)['token'])")
-
-          echo "Sequential AI food suggestion (core feature):"
-          curl -sf -X POST http://localhost:4000/api/students/foods/suggest \
-            -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-            -d '{"selectedItemIds":[],"excludedItemIds":[]}'
-
+          
+          find src/test/java -name "*.java" > test_sources.txt
+          javac -d out -cp "out:lib/*" @test_sources.txt
+          java -cp "out:lib/*" org.junit.platform.console.ConsoleLauncher --select-class com.mealapp.FeatureIntegrationTest
+          
           kill $SERVER_PID
 
-  frontend-lint:
-    name: Frontend — basic HTML/JS sanity checks
+  frontend-e2e:
+    name: Frontend — Static Checks & Playwright E2E Tests
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 22
+      - name: Setup Node.js 22
         uses: actions/setup-node@v5
         with:
           node-version: '22'
 
-      - name: Syntax-check frontend JS files
+      - name: Syntax-check JS Files
         run: |
           for f in $(find frontend/js -name "*.js"); do
             node --check "$f"
           done
 
-      - name: Check all HTML files reference existing assets
+      - name: Install Playwright & Browsers
+        working-directory: frontend
         run: |
-          for f in frontend/*.html; do
-            echo "Checking $f"
-            grep -o 'src="[^"]*"' "$f" | sed 's/src="//;s/"//' | while read -r asset; do
-              case "$asset" in
-                http*) continue ;;
-              esac
-              if [ ! -f "frontend/$asset" ]; then
-                echo "Missing asset referenced in $f: $asset"
-                exit 1
-              fi
-            done
-          done
+          npm ci || npm install
+          npx playwright install --with-deps chromium
+
+      - name: Execute Playwright E2E Tests
+        working-directory: frontend
+        run: npx playwright test tests/e2e.spec.js
