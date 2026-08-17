@@ -113,7 +113,7 @@
       <div class="card">
         <span class="eyebrow">AI food agent</span>
         <h2>Add foods to your plan</h2>
-        <p>The AI Engine shows healthiest, lowest-cost foods you can currently afford, cheapest first. Click any item to add it to your plan — scroll down to explore the full list of available options that fit your budget.</p>
+        <p>The AI Engine shows healthiest, lowest-cost foods you can currently afford, cheapest first. Click any item to add it to your plan — scroll down to explore the full list of available options that fit your budget. You can also search by name.</p>
       </div>
 
       <div class="grid grid-2" style="margin-top:18px; align-items:start;">
@@ -122,6 +122,33 @@
             <h2>Top picks</h2>
             <span class="badge" id="pickBudgetBadge"></span>
           </div>
+
+          <!-- Search box with clear button -->
+          <div style="position: relative; margin-bottom: 16px;">
+            <input id="searchInput" 
+                   type="text" 
+                   placeholder="Search food (e.g. chicken, rice, biryani…)"
+                   autocomplete="off"
+                   style="padding-right: 42px;">
+            <button type="button" id="clearSearchBtn" 
+                    title="Clear search"
+                    style="
+                      position: absolute;
+                      right: 10px;
+                      top: 50%;
+                      transform: translateY(-50%);
+                      background: none;
+                      border: none;
+                      cursor: pointer;
+                      font-size: 18px;
+                      color: var(--text-muted);
+                      display: none;
+                      padding: 4px 6px;
+                      line-height: 1;
+                      border-radius: 6px;
+                    ">×</button>
+          </div>
+
           <div id="pickList"><div class="empty">Loading…</div></div>
         </div>
 
@@ -364,15 +391,17 @@
   });
 
   // ---- Meal Plan (AI Agent) Logic ----
-  async function loadPicks() {
+  async function loadPicks(searchQuery = '') {
     showError('errorBanner', null);
     const el = document.getElementById('pickList');
     try {
-      const data = await Api.recommendMeals(cartSelectedIds);
+      const data = await Api.recommendMeals(cartSelectedIds, searchQuery);
       renderCart(data);
 
       if (!data.recommendations || !data.recommendations.length) {
-        el.innerHTML = '<div class="empty">No more items fit your remaining budget.</div>';
+        el.innerHTML = searchQuery 
+          ? `<div class="empty">No foods found matching "${escapeHtml(searchQuery)}".</div>`
+          : '<div class="empty">No more items fit your remaining budget.</div>';
         return;
       }
 
@@ -382,7 +411,7 @@
             <span style="font-weight: 700; opacity: 0.4; min-width: 22px;">${index + 1}.</span>
             <div>
               <div class="name">${escapeHtml(it.name)}</div>
-              <div class="meta">${it.category} · ${it.calories} kcal · ${it.proteinG}g protein</div>
+              <div class="meta">${it.category || ''} · ${it.calories} kcal · ${it.proteinG}g protein</div>
             </div>
           </div>
           <span class="price">${money(it.price)}</span>
@@ -391,6 +420,30 @@
       showError('errorBanner', err.message);
     }
   }
+
+  // ---- Search box + Clear button ----
+  const searchInput = document.getElementById('searchInput');
+  const clearSearchBtn = document.getElementById('clearSearchBtn');
+  let searchTimer;
+
+  function updateClearButton() {
+    clearSearchBtn.style.display = searchInput.value.trim() ? 'block' : 'none';
+  }
+
+  searchInput.addEventListener('input', () => {
+    updateClearButton();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      loadPicks(searchInput.value.trim());
+    }, 350);
+  });
+
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    updateClearButton();
+    loadPicks('');
+    searchInput.focus();
+  });
 
   // Guarded event delegation for meal selection
   document.getElementById('pickList').addEventListener('click', async (e) => {
@@ -402,7 +455,8 @@
     cartSelectedIds.push(btn.dataset.id);
 
     try {
-      await loadPicks();
+      // Keep current search query when adding items
+      await loadPicks(searchInput.value.trim());
     } finally {
       isUpdatingCart = false;
     }
@@ -423,7 +477,7 @@
             <span style="font-weight: 700; opacity: 0.4; min-width: 22px;">${index + 1}.</span>
             <div>
               <div class="name">${escapeHtml(it.name)}</div>
-              <div class="meta">${it.category} · ${it.calories} kcal</div>
+              <div class="meta">${it.category || ''} · ${it.calories} kcal</div>
             </div>
           </div>
           <span class="price">${money(it.price)}</span>
@@ -436,6 +490,8 @@
     if (isUpdatingCart) return;
     isUpdatingCart = true;
     cartSelectedIds = [];
+    searchInput.value = '';
+    updateClearButton();
     try {
       await loadPicks();
     } finally {
@@ -452,6 +508,8 @@
       await Api.savePlan(cartSelectedIds);
       showToast('Meal plan saved.');
       cartSelectedIds = [];
+      searchInput.value = '';
+      updateClearButton();
       await loadPicks();
       loadOverview();
       loadPlanHistory();
@@ -560,6 +618,9 @@
   // Initial dashboard loads
   loadOverview();
   loadExpenses();
+  loadInsights();
+  loadFoodLog();
+  loadNutritionSummary();
 </script>
 </body>
 </html>

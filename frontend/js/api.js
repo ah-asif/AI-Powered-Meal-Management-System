@@ -73,7 +73,13 @@ const Api = {
   listExpenses: () => apiRequest('/students/expenses'),
   addExpense: (payload) => apiRequest('/students/expenses', { method: 'POST', body: payload }),
   suggestNextFood: (payload) => apiRequest('/students/foods/suggest', { method: 'POST', body: payload }),
-  recommendMeals: (selectedItemIds) => apiRequest('/students/foods/recommendations', { method: 'POST', body: { selectedItemIds: selectedItemIds || [] } }),
+  recommendMeals: (selectedItemIds, searchQuery) => apiRequest('/students/foods/recommendations', { 
+  method: 'POST', 
+  body: { 
+    selectedItemIds: selectedItemIds || [],
+    q: searchQuery || null          // send search query
+  } 
+}),
   savePlan: (itemIds) => apiRequest('/students/meal-plans', { method: 'POST', body: { itemIds } }),
   listMealPlans: () => apiRequest('/students/meal-plans'),
   getMealPlan: (id) => apiRequest(`/students/meal-plans/${id}`),
