@@ -447,18 +447,20 @@
 
   // Guarded event delegation for meal selection
   document.getElementById('pickList').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.pick-row');
-    if (!btn || btn.disabled || isUpdatingCart) return;
+      const btn = e.target.closest('.pick-row');
+      if (!btn || btn.disabled || isUpdatingCart) return;
 
-    isUpdatingCart = true;
-    btn.disabled = true;
-    cartSelectedIds.push(btn.dataset.id);
+      isUpdatingCart = true;
+      btn.disabled = true;
+      cartSelectedIds.push(btn.dataset.id);
 
     try {
-      // Keep current search query when adding items
-      await loadPicks(searchInput.value.trim());
-    } finally {
-      isUpdatingCart = false;
+    // Clear search after selecting an item → show full remaining list
+    searchInput.value = '';
+    updateClearButton();
+    await loadPicks('');          // empty query = normal Top Picks
+     } finally {
+    isUpdatingCart = false;
     }
   });
 
